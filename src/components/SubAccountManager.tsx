@@ -247,7 +247,7 @@ export function SubAccountManager() {
                 disabled={isPending || !newSubAccount}
                 className="w-full"
               >
-                {isPending ? 'Proposing...' : 'Add Sub-Account'}
+                {'Add Sub-Account'}
               </Button>
             </div>
           </CardContent>
