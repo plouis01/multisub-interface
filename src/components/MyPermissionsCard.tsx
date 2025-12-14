@@ -1,11 +1,16 @@
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tooltip } from '@/components/ui/tooltip'
 import { ROLES, ROLE_NAMES, ROLE_DESCRIPTIONS } from '@/lib/contracts'
 import { PROTOCOLS, type Protocol } from '@/lib/protocols'
-import { useHasRole, useIsAddressAllowed } from '@/hooks/useSafe'
+import { useHasRole, useIsAddressAllowed, useAllowedAddresses } from '@/hooks/useSafe'
+
+// Get all contract addresses from all protocols
+const ALL_PROTOCOL_ADDRESSES = PROTOCOLS.flatMap(p => p.contracts.map(c => c.address))
 
 export function MyPermissionsCard() {
   const { address, isConnected } = useAccount()
@@ -13,6 +18,9 @@ export function MyPermissionsCard() {
 
   const { data: hasExecuteRole } = useHasRole(address, ROLES.DEFI_EXECUTE_ROLE)
   const { data: hasTransferRole } = useHasRole(address, ROLES.DEFI_TRANSFER_ROLE)
+  const { data: allowedAddresses } = useAllowedAddresses(address, ALL_PROTOCOL_ADDRESSES)
+
+  const hasAnyAllowedProtocol = allowedAddresses && allowedAddresses.size > 0
 
   if (!isConnected) {
     return (
@@ -37,13 +45,9 @@ export function MyPermissionsCard() {
       <CardContent className="space-y-4">
         {/* Active Roles */}
         <div>
-          <p className="mb-2 text-caption text-tertiary uppercase tracking-wider">
-            Active Roles
-          </p>
+          <p className="mb-2 text-caption text-tertiary uppercase tracking-wider">Active Roles</p>
           <div className="flex flex-wrap gap-2">
-            {hasExecuteRole && (
-              <Badge variant="info">{ROLE_NAMES[ROLES.DEFI_EXECUTE_ROLE]}</Badge>
-            )}
+            {hasExecuteRole && <Badge variant="info">{ROLE_NAMES[ROLES.DEFI_EXECUTE_ROLE]}</Badge>}
             {hasTransferRole && (
               <Badge variant="success">{ROLE_NAMES[ROLES.DEFI_TRANSFER_ROLE]}</Badge>
             )}
@@ -54,9 +58,7 @@ export function MyPermissionsCard() {
         {/* Capabilities */}
         {hasAnyRole && (
           <div className="space-y-3">
-            <p className="text-caption text-tertiary uppercase tracking-wider">
-              Capabilities
-            </p>
+            <p className="text-caption text-tertiary uppercase tracking-wider">Capabilities</p>
 
             {hasExecuteRole && (
               <div className="flex items-center gap-2 text-small">
@@ -72,26 +74,37 @@ export function MyPermissionsCard() {
               </div>
             )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowProtocols(!showProtocols)}
-              className="w-full"
-            >
-              {showProtocols ? '▲ Hide' : '▼ Show'} Allowed Protocols
-            </Button>
+            {hasAnyAllowedProtocol ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowProtocols(!showProtocols)}
+                  className="gap-1 w-full"
+                >
+                  {showProtocols ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                  {showProtocols ? 'Hide' : 'Show'} Allowed Protocols
+                </Button>
 
-            {showProtocols && address && (
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {PROTOCOLS.map((protocol, index) => (
-                  <ProtocolAccessCompact
-                    key={protocol.id}
-                    protocol={protocol}
-                    subAccount={address}
-                    index={index}
-                  />
-                ))}
-              </div>
+                {showProtocols && address && (
+                  <div className="space-y-2 max-h-48">
+                    {PROTOCOLS.map((protocol, index) => (
+                      <ProtocolAccessCompact
+                        key={protocol.id}
+                        protocol={protocol}
+                        subAccount={address}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-small text-tertiary">No Protocol Permissions set</p>
             )}
           </div>
         )}
@@ -129,12 +142,24 @@ function ProtocolAccessCompact({ protocol, subAccount, index }: ProtocolAccessCo
 
   return (
     <div
-      className="flex items-center justify-between bg-elevated p-2 rounded-lg animate-fade-in-up"
+      className="flex justify-between items-center bg-elevated p-2 rounded-lg animate-fade-in-up"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      <Badge variant="info" className="text-xs">
-        {protocol.name}
-      </Badge>
+      <Tooltip
+        content={contractChecks
+          .filter(c => c.isAllowed)
+          .map(c => c.contract.name)
+          .join('\n')}
+        className="text-left whitespace-pre-line"
+        align="left"
+      >
+        <Badge
+          variant="info"
+          className="text-xs cursor-help"
+        >
+          {protocol.name}
+        </Badge>
+      </Tooltip>
       {allowedContracts > 0 && (
         <span className="text-caption text-tertiary">
           {allowedContracts} contract{allowedContracts !== 1 ? 's' : ''}

@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tooltip } from '@/components/ui/tooltip'
 import { ROLES, ROLE_NAMES, ROLE_DESCRIPTIONS } from '@/lib/contracts'
-import { PROTOCOLS } from '@/lib/protocols'
+import { PROTOCOLS, Protocol } from '@/lib/protocols'
 import { SubAccountDashboard } from '@/components/SubAccountDashboard'
 import { SpendingAllowanceCard } from '@/components/SpendingAllowanceCard'
 import { AcquiredBalancesCard } from '@/components/AcquiredBalancesCard'
@@ -157,12 +159,7 @@ export function MyPermissions() {
 }
 
 interface ProtocolAccessProps {
-  protocol: {
-    id: string
-    name: string
-    contractAddress: `0x${string}`
-    pools: Array<{ id: string; name: string; address: `0x${string}`; token: string }>
-  }
+  protocol: Protocol
   subAccount: `0x${string}`
   index: number
 }
@@ -170,49 +167,54 @@ interface ProtocolAccessProps {
 function ProtocolAccess({ protocol, subAccount, index }: ProtocolAccessProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const { data: protocolAllowed } = useIsAddressAllowed(subAccount, protocol.contractAddress)
-
-  const poolChecks = protocol.pools.map(pool => {
+  const contractChecks = protocol.contracts.map(contract => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { data: isAllowed } = useIsAddressAllowed(subAccount, pool.address)
-    return { pool, isAllowed }
+    const { data: isAllowed } = useIsAddressAllowed(subAccount, contract.address)
+    return { contract, isAllowed }
   })
 
-  const allowedPools = poolChecks.filter(p => p.isAllowed).length
-  const hasAccess = protocolAllowed || allowedPools > 0
+  const allowedContracts = contractChecks.filter(c => c.isAllowed).length
+  const hasAccess = allowedContracts > 0
 
   if (!hasAccess) return null
 
   return (
     <div
-      className="border border-subtle rounded-xl overflow-hidden animate-fade-in-up"
+      className="border border-subtle rounded-xl animate-fade-in-up"
       style={{ animationDelay: `${index * 50}ms` }}
     >
       <div
-        className="flex justify-between items-center bg-elevated hover:bg-elevated-2 p-3 transition-colors cursor-pointer"
+        className="flex justify-between items-center bg-elevated hover:bg-elevated-2 p-3 rounded-t-xl transition-colors cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3">
-          <Badge variant="info">{protocol.name}</Badge>
-          {allowedPools > 0 && (
+          <Tooltip
+            content={`Contracts:\n${protocol.contracts.map(c => `• ${c.name} (${c.address.slice(0, 6)}...${c.address.slice(-4)})`).join('\n')}`}
+            className="whitespace-pre-line text-left"
+          >
+            <Badge variant="info" className="cursor-help">{protocol.name}</Badge>
+          </Tooltip>
+          {allowedContracts > 0 && (
             <span className="text-caption text-tertiary">
-              {allowedPools} pool{allowedPools !== 1 ? 's' : ''}
+              {allowedContracts} contract{allowedContracts !== 1 ? 's' : ''}
             </span>
           )}
         </div>
-        <span className="text-tertiary text-sm">{isExpanded ? '▲' : '▼'}</span>
+        {isExpanded ? <ChevronUp className="w-4 h-4 text-tertiary" /> : <ChevronDown className="w-4 h-4 text-tertiary" />}
       </div>
 
       {isExpanded && (
-        <div className="space-y-2 bg-elevated-2 p-3 border-subtle border-t">
-          {poolChecks.map(({ pool, isAllowed }) =>
+        <div className="space-y-2 bg-elevated-2 p-3 border-subtle border-t rounded-b-xl">
+          {contractChecks.map(({ contract, isAllowed }) =>
             isAllowed ? (
               <div
-                key={pool.id}
+                key={contract.id}
                 className="flex justify-between items-center bg-elevated p-2 rounded-lg"
               >
-                <span className="text-primary text-small">{pool.name}</span>
-                <Badge variant="outline">{pool.token}</Badge>
+                <span className="text-primary text-small">{contract.name}</span>
+                <span className="font-mono text-caption text-tertiary">
+                  {contract.address.slice(0, 6)}...{contract.address.slice(-4)}
+                </span>
               </div>
             ) : null
           )}
