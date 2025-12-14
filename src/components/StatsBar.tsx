@@ -1,7 +1,8 @@
 import { useAccount, useChainId } from 'wagmi'
-import { useSafeAddress, useIsSafeOwner, useManagedAccounts, useSafeValue, useIsValueStale } from '@/hooks/useSafe'
+import { useSafeAddress, useManagedAccounts, useSafeValue, useIsValueStale } from '@/hooks/useSafe'
 import { Badge } from '@/components/ui/badge'
 import { TooltipIcon } from '@/components/ui/tooltip'
+import { ViewSwitcher } from '@/components/ViewSwitcher'
 import { formatUSD, formatTimeAgo } from '@/lib/utils'
 
 const chainNames: Record<number, string> = {
@@ -17,7 +18,6 @@ export function StatsBar() {
   const { isConnected } = useAccount()
   const chainId = useChainId()
   const { data: safeAddress } = useSafeAddress()
-  const { isSafeOwner } = useIsSafeOwner()
   const { data: accounts } = useManagedAccounts()
 
   if (!isConnected) return null
@@ -33,11 +33,7 @@ export function StatsBar() {
           value={safeAddress ? 'Connected' : 'Not configured'}
           status={safeAddress ? 'success' : 'warning'}
         />
-        <StatItem
-          label="Role"
-          value={isSafeOwner ? 'Safe Owner' : 'Sub-Account'}
-          status={isSafeOwner ? 'info' : 'default'}
-        />
+        <ViewSwitcher />
         <StatItem
           label="Sub-Accounts"
           value={(accounts?.length ?? 0).toString()}

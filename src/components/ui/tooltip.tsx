@@ -5,10 +5,17 @@ interface TooltipProps {
   content: string
   children: React.ReactNode
   className?: string
+  align?: "center" | "left" | "right"
 }
 
-export function Tooltip({ content, children, className }: TooltipProps) {
+export function Tooltip({ content, children, className, align = "center" }: TooltipProps) {
   const [isVisible, setIsVisible] = React.useState(false)
+
+  const alignmentClasses = {
+    center: "left-1/2 -translate-x-1/2 after:left-1/2 after:-translate-x-1/2",
+    right: "right-0 after:right-4 after:translate-x-0",
+    left: "left-0 after:left-4 after:translate-x-0"
+  }
 
   return (
     <div className="relative inline-block">
@@ -24,9 +31,10 @@ export function Tooltip({ content, children, className }: TooltipProps) {
         <div
           className={cn(
             "absolute z-50 px-3 py-2 text-xs text-white bg-slate-900 dark:bg-slate-700 rounded-md shadow-lg",
-            "bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs",
-            "after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2",
+            "bottom-full mb-2 w-max max-w-xs",
+            "after:content-[''] after:absolute after:top-full",
             "after:border-4 after:border-transparent after:border-t-slate-900 dark:after:border-t-slate-700",
+            alignmentClasses[align],
             className
           )}
           role="tooltip"
