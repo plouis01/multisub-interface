@@ -313,7 +313,7 @@ export function ProtocolPermissions({ subAccountAddress }: ProtocolPermissionsPr
                   </div>
 
                   {isExpanded && (
-                    <div className="space-y-2 mt-3 ml-6 pl-3 border-muted border-l">
+                    <div className="space-y-2 my-3 mr-4 ml-6 pl-3 border-muted border-l">
                       {protocol.contracts.map(contract => {
                         const isContractAllowed = allowedAddresses.has(contract.address)
                         return (
