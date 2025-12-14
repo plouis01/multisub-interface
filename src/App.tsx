@@ -10,36 +10,38 @@ import { SubAccountDashboard } from '@/components/SubAccountDashboard'
 import { SpendingAllowanceCard } from '@/components/SpendingAllowanceCard'
 import { AcquiredBalancesCard } from '@/components/AcquiredBalancesCard'
 import { useContractAddresses } from '@/contexts/ContractAddressContext'
-import { useIsSafeOwner } from '@/hooks/useSafe'
+import { useViewMode } from '@/contexts/ViewModeContext'
+import { useUserRoles } from '@/hooks/useUserRoles'
 import { useAccount } from 'wagmi'
 
 function App() {
   const { isConfigured } = useContractAddresses()
-  const { isSafeOwner } = useIsSafeOwner()
+  const { viewMode } = useViewMode()
+  const { isSafeOwner, isDualRole } = useUserRoles()
   const { isConnected, address } = useAccount()
 
   return (
     <div className="min-h-screen app-background">
       {/* Header */}
       <header className="top-0 z-50 sticky border-subtle border-b glass">
-        <div className="flex justify-between items-center mx-auto px-6 h-16 container">
+        <div className="flex justify-between items-center mx-auto px-3 md:px-6 h-14 md:h-16 container">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <img
               src="/logo.png"
               alt="MultiSub"
-              className="w-9 h-9 object-contain"
+              className="w-8 h-8 md:w-9 md:h-9 object-contain"
             />
             <div>
-              <h1 className="font-semibold text-primary text-lg leading-tight">MultiSub</h1>
-              <p className="-mt-0.5 text-caption text-tertiary">
-                {isSafeOwner ? 'Safe Owner' : 'DeFi Delegated'}
+              <h1 className="font-semibold text-primary text-base md:text-lg leading-tight">MultiSub</h1>
+              <p className="-mt-0.5 text-caption text-tertiary hidden md:block">
+                {isDualRole ? 'Owner + Sub-Account' : isSafeOwner ? 'Safe Owner' : 'DeFi Delegated'}
               </p>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <ThemeToggle />
             {isConnected ? (
               <ConnectButton
@@ -56,10 +58,10 @@ function App() {
                   return (
                     <button
                       onClick={openConnectModal}
-                      className="group inline-flex relative justify-center items-center bg-gradient-to-r shadow-glow hover:shadow-xl px-6 rounded-md h-10 overflow-hidden font-semibold text-black text-base hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 from-accent-primary to-accent-secondary"
+                      className="group inline-flex relative justify-center items-center bg-gradient-to-r shadow-glow hover:shadow-xl px-3 md:px-6 rounded-md h-9 md:h-10 overflow-hidden font-semibold text-black text-sm md:text-base hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 from-accent-primary to-accent-secondary"
                     >
                       <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform -translate-x-full group-hover:translate-x-full duration-700" />
-                      <span className="z-10 relative">Connect Wallet</span>
+                      <span className="z-10 relative">Connect</span>
                     </button>
                   )
                 }}
@@ -79,7 +81,7 @@ function App() {
           <div className="mx-auto max-w-2xl animate-fade-in-up">
             <ContractSetup />
           </div>
-        ) : isSafeOwner ? (
+        ) : viewMode === 'owner' ? (
           /* Safe Owner View - Content First Layout */
           <div className="animate-fade-in space-y-6">
             {/* Stats Bar */}
