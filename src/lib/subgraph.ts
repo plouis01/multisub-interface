@@ -3,13 +3,11 @@ import { gql } from 'graphql-request'
 
 // Client configuration
 export const createSubgraphClient = () => {
-  const url = import.meta.env.VITE_SUBGRAPH_URL
+  const url = 'https://api.studio.thegraph.com/query/36309/multisub-sepolia/version/latest'
   const token = import.meta.env.VITE_SUBGRAPH_AUTH_TOKEN
 
-  if (!url) throw new Error('VITE_SUBGRAPH_URL not configured')
-
   return new GraphQLClient(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
 }
 
