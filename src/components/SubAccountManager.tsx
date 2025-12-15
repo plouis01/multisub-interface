@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { CopyButton } from '@/components/ui/copy-button'
 import { TooltipIcon } from '@/components/ui/tooltip'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Pencil } from 'lucide-react'
 import { DEFI_INTERACTOR_ABI, ROLES, ROLE_NAMES, ROLE_DESCRIPTIONS } from '@/lib/contracts'
+import { useSubAccountNames } from '@/hooks/useSubAccountNames'
 import { ProtocolPermissions } from '@/components/ProtocolPermissions'
 import { SpendingLimits } from '@/components/SpendingLimits'
 import { useContractAddresses } from '@/contexts/ContractAddressContext'
@@ -282,7 +283,8 @@ export function SubAccountManager() {
                           )}
                         </div>
                         <p className="text-caption text-tertiary">
-                          Time window fixed at 24 hours (adjustable later via Configure)
+                          Time window fixed at 24 hours
+                          {/* (adjustable later via Configure) */}
                         </p>
                       </div>
                     </div>
@@ -358,9 +360,14 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<'spending' | 'protocols'>('spending')
   const [isRolesPopoverOpen, setIsRolesPopoverOpen] = useState(false)
+  const [isNamePopoverOpen, setIsNamePopoverOpen] = useState(false)
+  const [nameInputValue, setNameInputValue] = useState('')
 
   const { data: hasExecuteRole } = useHasRole(account, ROLES.DEFI_EXECUTE_ROLE)
   const { data: hasTransferRole } = useHasRole(account, ROLES.DEFI_TRANSFER_ROLE)
+  const { isSafeOwner } = useIsSafeOwner()
+  const { getAccountName, setAccountName, removeAccountName } = useSubAccountNames()
+  const accountName = getAccountName(account)
 
   // Local editing state - tracks checkbox values during modification
   const [localExecuteRole, setLocalExecuteRole] = useState<boolean>(false)
@@ -375,6 +382,13 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
       setLocalTransferRole(hasTransferRole)
     }
   }, [hasExecuteRole, hasTransferRole])
+
+  // Sync name input value when popover opens
+  useEffect(() => {
+    if (isNamePopoverOpen) {
+      setNameInputValue(accountName || '')
+    }
+  }, [isNamePopoverOpen, accountName])
 
   // Spending allowance data for progress bar
   const { data: spendingAllowance } = useSpendingAllowance(account)
@@ -476,6 +490,17 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
     setLocalTransferRole(hasTransferRole || false)
   }
 
+  const handleSaveName = () => {
+    const trimmed = nameInputValue.trim()
+    if (trimmed) {
+      setAccountName(account, trimmed)
+    } else {
+      removeAccountName(account)
+    }
+    setIsNamePopoverOpen(false)
+    setNameInputValue('')
+  }
+
   return (
     <div
       className="border border-subtle rounded-xl animate-fade-in-up"
@@ -488,12 +513,183 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
         )}
       >
         <div className="flex-1 w-full sm:w-auto min-w-0">
-          <div className="flex items-center gap-1">
-            <p className="font-mono font-medium text-primary text-small truncate">
-              {account.slice(0, 6)}...{account.slice(-4)}
-            </p>
-            <CopyButton value={account} />
-          </div>
+          {accountName ? (
+            <div className="flex flex-col gap-0.5">
+              <p className="font-medium text-primary text-small truncate">{accountName}</p>
+              <div className="flex items-center gap-1">
+                <p className="font-mono font-medium text-muted-foreground text-xs truncate">
+                  {account.slice(0, 6)}...{account.slice(-4)}
+                </p>
+                <div className="flex items-center">
+                  <CopyButton value={account} />
+                  {isSafeOwner && (
+                    <Popover
+                      open={isNamePopoverOpen}
+                      onOpenChange={setIsNamePopoverOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="w-5 h-6"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="p-3 w-64"
+                        align="start"
+                      >
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block mb-2 font-medium text-sm">
+                              Sub-Account Name
+                            </label>
+                            <Input
+                              type="text"
+                              placeholder="Enter name..."
+                              value={nameInputValue}
+                              onChange={e => setNameInputValue(e.target.value)}
+                              maxLength={32}
+                              autoFocus
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  handleSaveName()
+                                } else if (e.key === 'Escape') {
+                                  setIsNamePopoverOpen(false)
+                                }
+                              }}
+                            />
+                            <p className="mt-1 text-muted-foreground text-xs">
+                              {nameInputValue.length}/32
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={handleSaveName}
+                              className="flex-1"
+                              disabled={nameInputValue === accountName}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setIsNamePopoverOpen(false)}
+                              className="flex-1"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          {accountName && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                removeAccountName(account)
+                                setIsNamePopoverOpen(false)
+                                setNameInputValue('')
+                              }}
+                              className="w-full text-destructive hover:text-destructive"
+                            >
+                              Remove Name
+                            </Button>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <p className="font-mono font-medium text-primary text-small truncate">
+                {account.slice(0, 6)}...{account.slice(-4)}
+              </p>
+              <div className="flex items-center">
+                <CopyButton value={account} />
+                {isSafeOwner && (
+                  <Popover
+                    open={isNamePopoverOpen}
+                    onOpenChange={setIsNamePopoverOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="w-5 h-6"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="p-3 w-64"
+                      align="start"
+                    >
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block mb-2 font-medium text-sm">Sub-Account Name</label>
+                          <Input
+                            type="text"
+                            placeholder="Enter name..."
+                            value={nameInputValue}
+                            onChange={e => setNameInputValue(e.target.value)}
+                            maxLength={32}
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                handleSaveName()
+                              } else if (e.key === 'Escape') {
+                                setIsNamePopoverOpen(false)
+                              }
+                            }}
+                          />
+                          <p className="mt-1 text-muted-foreground text-xs">
+                            {nameInputValue.length}/32
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={handleSaveName}
+                            className="flex-1"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setIsNamePopoverOpen(false)}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                        {accountName && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              removeAccountName(account)
+                              setIsNamePopoverOpen(false)
+                              setNameInputValue('')
+                            }}
+                            className="w-full text-destructive hover:text-destructive"
+                          >
+                            Remove Name
+                          </Button>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 mt-2">
             {hasExecuteRole && <Badge variant="info">{ROLE_NAMES[ROLES.DEFI_EXECUTE_ROLE]}</Badge>}
             {hasTransferRole && (
