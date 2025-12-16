@@ -97,10 +97,10 @@ function App() {
             {/* Stats Bar */}
             <StatsBar />
 
-            {/* PRIMARY: SubAccountManager en premier */}
+            {/* PRIMARY: SubAccountManager first */}
             <SubAccountManager />
 
-            {/* SECONDARY: Emergency + Config en bas */}
+            {/* SECONDARY: Emergency + Config at bottom */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <EmergencyControls />
@@ -114,14 +114,14 @@ function App() {
             {/* Stats Bar */}
             <StatsBar />
 
-            {/* ROW 1: 3 colonnes - Permissions | Spending | Config */}
+            {/* ROW 1: 3 columns - Permissions | Spending | Config */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <MyPermissionsCard />
               <SpendingAllowanceCard address={address} />
               <ContractSetup />
             </div>
 
-            {/* ROW 2: 2 colonnes - Dashboard | Balances */}
+            {/* ROW 2: 2 columns - Dashboard | Balances */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SubAccountDashboard />
               <AcquiredBalancesCard address={address} />

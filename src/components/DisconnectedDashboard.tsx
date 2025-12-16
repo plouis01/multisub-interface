@@ -10,7 +10,7 @@ export function DisconnectedDashboard() {
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-h2">MultiSub Dashboard</CardTitle>
           <p className="text-secondary">
-            Connectez votre wallet pour acceder a vos fonctionnalites
+            Connect your wallet to access your features
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -25,15 +25,15 @@ export function DisconnectedDashboard() {
               <ul className="space-y-2 text-secondary text-small">
                 <li className="flex items-center gap-2">
                   <span className="text-accent-primary">&#8226;</span>
-                  Gerer les sub-accounts
+                  Manage sub-accounts
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-accent-primary">&#8226;</span>
-                  Configurer permissions et limites
+                  Configure permissions and limits
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-accent-primary">&#8226;</span>
-                  Controles d'urgence
+                  Emergency controls
                 </li>
               </ul>
             </div>
@@ -47,15 +47,15 @@ export function DisconnectedDashboard() {
               <ul className="space-y-2 text-secondary text-small">
                 <li className="flex items-center gap-2">
                   <span className="text-accent-primary">&#8226;</span>
-                  Voir vos permissions
+                  View your permissions
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-accent-primary">&#8226;</span>
-                  Consulter vos limites de depense
+                  Check your spending limits
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-accent-primary">&#8226;</span>
-                  Suivre vos balances acquises
+                  Track your acquired balances
                 </li>
               </ul>
             </div>

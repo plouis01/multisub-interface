@@ -79,7 +79,7 @@ export function ProtocolPermissions({ subAccountAddress }: ProtocolPermissionsPr
       }
     })
 
-    // Comparer avec les adresses actuellement autorisées
+    // Compare with currently authorized addresses
     if (selectedAddresses.size !== allowedAddresses.size) {
       return true
     }

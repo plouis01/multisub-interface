@@ -50,7 +50,7 @@ export function SpendingLimits({ subAccountAddress }: SpendingLimitsProps) {
   const { proposeTransaction, isPending } = useSafeProposal()
 
   const hasChanges = useMemo(() => {
-    if (!currentLimits) return true // Pas de limites actuelles = on peut proposer
+    if (!currentLimits) return true // No current limits = we can propose
 
     const inputSpendingBps = Math.floor(parseFloat(spendingLimit || '0') * 100)
     const inputWindowSeconds = Math.floor(parseFloat(windowHours || '0') * 3600)
