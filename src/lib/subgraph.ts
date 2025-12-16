@@ -24,7 +24,24 @@ export interface AcquiredBalanceUpdated {
 export interface AcquiredTokenWithTimestamp {
   token: string
   balance: bigint
-  timestamp: number // Unix timestamp in seconds
+  timestamp: number // Unix timestamp in seconds (oldest active batch)
+  lastBalance: bigint // Track previous balance to detect changes
+}
+
+// Protocol execution event data
+export interface ProtocolExecution {
+  id: string
+  subAccount: string
+  target: string
+  opType: number // 0=UNKNOWN, 1=SWAP, 2=DEPOSIT, 3=WITHDRAW, 4=CLAIM, 5=APPROVE
+  tokensIn: string[]
+  amountsIn: string[]
+  tokensOut: string[]
+  amountsOut: string[]
+  spendingCost: string
+  blockNumber: string
+  blockTimestamp: string
+  transactionHash: string
 }
 
 // Query definition
@@ -41,6 +58,30 @@ export const ACQUIRED_BALANCES_QUERY = gql`
       token
       newBalance
       blockTimestamp
+    }
+  }
+`
+
+export const PROTOCOL_EXECUTION_QUERY = gql`
+  query GetProtocolExecutions($subAccount: Bytes!, $fromTimestamp: BigInt!) {
+    protocolExecutions(
+      where: { subAccount: $subAccount, blockTimestamp_gte: $fromTimestamp }
+      orderBy: blockTimestamp
+      orderDirection: asc
+      first: 1000
+    ) {
+      id
+      subAccount
+      target
+      opType
+      tokensIn
+      amountsIn
+      tokensOut
+      amountsOut
+      spendingCost
+      blockNumber
+      blockTimestamp
+      transactionHash
     }
   }
 `
