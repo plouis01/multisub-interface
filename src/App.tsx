@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { SubAccountManager } from '@/components/SubAccountManager'
 import { EmergencyControls } from '@/components/EmergencyControls'
@@ -19,6 +20,7 @@ function App() {
   const { viewMode } = useViewMode()
   const { isSafeOwner, isDualRole } = useUserRoles()
   const { isConnected, address } = useAccount()
+  const [showWelcome, setShowWelcome] = useState(false)
 
   return (
     <div className="min-h-screen app-background">
@@ -26,7 +28,10 @@ function App() {
       <header className="top-0 z-50 sticky border-subtle border-b glass">
         <div className="flex justify-between items-center mx-auto px-3 md:px-6 h-14 md:h-16 container">
           {/* Logo */}
-          <div className="flex items-center gap-2 md:gap-3">
+          <div
+            onClick={() => setShowWelcome(true)}
+            className="flex items-center gap-2 md:gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+          >
             <img
               src="/logo.png"
               alt="MultiSub"
@@ -73,14 +78,9 @@ function App() {
 
       {/* Main Content */}
       <main className="mx-auto px-6 py-8 min-h-[calc(100dvh-130px)] container">
-        {!isConnected ? (
-          /* Welcome Screen */
-          <WelcomeHero />
-        ) : !isConfigured ? (
-          /* Setup Required */
-          <div className="mx-auto max-w-2xl animate-fade-in-up">
-            <ContractSetup />
-          </div>
+        {!isConfigured || showWelcome ? (
+          /* Welcome Screen with DeFi Interactor Input */
+          <WelcomeHero onNavigateAway={() => setShowWelcome(false)} />
         ) : viewMode === 'owner' ? (
           /* Safe Owner View - Content First Layout */
           <div className="animate-fade-in space-y-6">
