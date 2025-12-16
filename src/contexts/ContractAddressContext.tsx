@@ -9,6 +9,7 @@ interface ContractAddresses {
 interface ContractAddressContextType {
   addresses: ContractAddresses
   setDefiInteractor: (address: `0x${string}`) => void
+  clearDefiInteractor: () => void
   setSafe: (address: `0x${string}`) => void
   isConfigured: boolean
 }
@@ -59,6 +60,21 @@ export function ContractAddressProvider({ children }: ContractAddressProviderPro
     window.history.replaceState({}, '', `${window.location.pathname}?${params}`)
   }
 
+  const clearDefiInteractor = () => {
+    setAddresses({ defiInteractor: undefined, safe: undefined })
+    localStorage.removeItem('defiInteractor')
+    localStorage.removeItem('safe')
+
+    // Clear URL params
+    const params = new URLSearchParams(window.location.search)
+    params.delete('defiInteractor')
+    params.delete('safe')
+    const newUrl = params.toString()
+      ? `${window.location.pathname}?${params}`
+      : window.location.pathname
+    window.history.replaceState({}, '', newUrl)
+  }
+
   const setSafe = (address: `0x${string}`) => {
     // Safe is derived from DeFi Interactor - only update local state as cache
     setAddresses(prev => ({ ...prev, safe: address }))
@@ -71,6 +87,7 @@ export function ContractAddressProvider({ children }: ContractAddressProviderPro
       value={{
         addresses,
         setDefiInteractor,
+        clearDefiInteractor,
         setSafe,
         isConfigured,
       }}

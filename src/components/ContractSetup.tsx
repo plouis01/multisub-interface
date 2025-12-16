@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/contexts/ToastContext'
 
 export function ContractSetup() {
-  const { addresses, setDefiInteractor, isConfigured } = useContractAddresses()
+  const { addresses, setDefiInteractor, clearDefiInteractor, isConfigured } = useContractAddresses()
   const { recentAddresses, addAddress, removeAddress } = useRecentAddresses()
   const { data: safeAddress } = useSafeAddress()
   const publicClient = usePublicClient()
@@ -229,6 +229,16 @@ export function ContractSetup() {
           </DialogBody>
 
           <DialogFooter>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                clearDefiInteractor()
+                setChangeModalOpen(false)
+              }}
+              className="mr-auto"
+            >
+              Remove
+            </Button>
             <Button
               variant="outline"
               onClick={() => setChangeModalOpen(false)}
