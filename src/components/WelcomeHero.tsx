@@ -128,8 +128,10 @@ export function WelcomeHero({ onNavigateAway }: WelcomeHeroProps = {}) {
       <div className="text-center animate-fade-in-up">
         {/* Title with gradient and text shadow */}
         <h1
-          className="bg-clip-text bg-gradient-to-r from-white via-white to-white/60 mb-4 text-display text-transparent"
-          style={{ textShadow: '0 0 40px rgba(18, 255, 128, 0.3)' }}
+          className="bg-clip-text bg-gradient-to-r from-accent-primary via-accent-primary to-accent-secondary dark:from-white dark:via-white dark:to-white/60 mb-4 text-display text-transparent"
+          style={{
+            textShadow: '0 0 40px var(--accent-primary-glow, rgba(18, 255, 128, 0.3))'
+          }}
         >
           DeFi, Delegated.
         </h1>

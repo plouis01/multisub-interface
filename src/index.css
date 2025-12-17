@@ -67,23 +67,42 @@
   }
 
   .light {
-    --bg-base: #F8FAFC;
-    --bg-elevated: #FFFFFF;
-    --bg-elevated-2: #F1F5F9;
-    --bg-elevated-3: #E2E8F0;
+    /* Arrière-plans gris moyens (moins pâles) */
+    --bg-base: #E8EAED;
+    --bg-elevated: #F1F3F5;
+    --bg-elevated-2: #DDE1E6;
+    --bg-elevated-3: #CDD2D8;
 
-    --text-primary: #0D0F12;
-    --text-secondary: rgba(13, 15, 18, 0.72);
-    --text-tertiary: rgba(13, 15, 18, 0.48);
-    --text-disabled: rgba(13, 15, 18, 0.24);
+    /* Accents pour mode clair (clairs et légèrement saturés) */
+    --accent-primary: #5FD88E;
+    --accent-secondary: #5FC5E8;
 
-    --border-subtle: rgba(0, 0, 0, 0.04);
-    --border-default: rgba(0, 0, 0, 0.08);
-    --border-strong: rgba(0, 0, 0, 0.12);
+    /* Texte avec contraste élevé - gris très foncé */
+    --text-primary: #1A1D1F;
+    --text-secondary: rgba(26, 29, 31, 0.75);
+    --text-tertiary: rgba(26, 29, 31, 0.55);
+    --text-disabled: rgba(26, 29, 31, 0.30);
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+    /* Bordures plus visibles */
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --border-default: rgba(0, 0, 0, 0.15);
+    --border-strong: rgba(0, 0, 0, 0.25);
+    --border-accent: rgba(95, 216, 142, 0.4);
+
+    /* États sémantiques (clairs et légèrement saturés) */
+    --success: #5FD88E;
+    --success-muted: rgba(95, 216, 142, 0.12);
+    --error: #E87A7E;
+    --error-muted: rgba(232, 122, 126, 0.12);
+    --warning: #F0BA5C;
+    --warning-muted: rgba(240, 186, 92, 0.12);
+    --info: #5FC5E8;
+    --info-muted: rgba(95, 197, 232, 0.12);
+
+    /* Ombres plus prononcées */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16), 0 4px 8px rgba(0, 0, 0, 0.08);
   }
 }
 
@@ -139,8 +158,8 @@
 
   .light .app-background {
     background:
-      radial-gradient(ellipse at 20% 0%, rgba(18, 255, 128, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 100%, rgba(0, 212, 255, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 0%, rgba(95, 216, 142, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(95, 197, 232, 0.05) 0%, transparent 50%),
       var(--bg-base);
   }
 
@@ -152,7 +171,9 @@
   }
 
   .light .glass {
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(241, 243, 245, 0.85);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
   }
 
   /* Gradient text */
