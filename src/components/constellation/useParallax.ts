@@ -170,3 +170,4 @@ export function calculateBezierMagneticOffset(
     y: dirY * strength * influenceFactor,
   }
 }
+
