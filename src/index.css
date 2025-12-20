@@ -67,42 +67,44 @@
   }
 
   .light {
-    /* Arrière-plans gris moyens (moins pâles) */
-    --bg-base: #E8EAED;
-    --bg-elevated: #F1F3F5;
-    --bg-elevated-2: #DDE1E6;
-    --bg-elevated-3: #CDD2D8;
+    /* Arrière-plans avec plus de contraste entre les layers */
+    --bg-base: #F5F6F8;
+    --bg-elevated: #FFFFFF;
+    --bg-elevated-2: #F0F1F4;
+    --bg-elevated-3: #E5E7EB;
 
-    /* Accents pour mode clair (clairs et légèrement saturés) */
-    --accent-primary: #5FD88E;
-    --accent-secondary: #5FC5E8;
+    /* Accents plus saturés pour meilleure visibilité */
+    --accent-primary: #10B981;
+    --accent-secondary: #0EA5E9;
 
-    /* Texte avec contraste élevé - gris très foncé */
-    --text-primary: #1A1D1F;
-    --text-secondary: rgba(26, 29, 31, 0.75);
-    --text-tertiary: rgba(26, 29, 31, 0.55);
-    --text-disabled: rgba(26, 29, 31, 0.30);
+    /* Texte avec excellent contraste WCAG AAA */
+    --text-primary: #111827;
+    --text-secondary: #374151;
+    --text-tertiary: #6B7280;
+    --text-disabled: #9CA3AF;
 
-    /* Bordures plus visibles */
-    --border-subtle: rgba(0, 0, 0, 0.08);
-    --border-default: rgba(0, 0, 0, 0.15);
-    --border-strong: rgba(0, 0, 0, 0.25);
-    --border-accent: rgba(95, 216, 142, 0.4);
+    /* Bordures solides et visibles */
+    --border-subtle: #E5E7EB;
+    --border-default: #D1D5DB;
+    --border-strong: #9CA3AF;
+    --border-accent: rgba(16, 185, 129, 0.5);
 
-    /* États sémantiques (clairs et légèrement saturés) */
-    --success: #5FD88E;
-    --success-muted: rgba(95, 216, 142, 0.12);
-    --error: #E87A7E;
-    --error-muted: rgba(232, 122, 126, 0.12);
-    --warning: #F0BA5C;
-    --warning-muted: rgba(240, 186, 92, 0.12);
-    --info: #5FC5E8;
-    --info-muted: rgba(95, 197, 232, 0.12);
+    /* États sémantiques avec meilleur contraste */
+    --success: #059669;
+    --success-muted: rgba(5, 150, 105, 0.1);
+    --error: #DC2626;
+    --error-muted: rgba(220, 38, 38, 0.1);
+    --warning: #D97706;
+    --warning-muted: rgba(217, 119, 6, 0.1);
+    --info: #0284C7;
+    --info-muted: rgba(2, 132, 199, 0.1);
 
-    /* Ombres plus prononcées */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16), 0 4px 8px rgba(0, 0, 0, 0.08);
+    /* Ombres subtiles mais visibles */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    --shadow-glow: 0 0 15px rgba(16, 185, 129, 0.2), 0 0 30px rgba(16, 185, 129, 0.1);
   }
 }
 
@@ -158,8 +160,8 @@
 
   .light .app-background {
     background:
-      radial-gradient(ellipse at 20% 0%, rgba(95, 216, 142, 0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 100%, rgba(95, 197, 232, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(14, 165, 233, 0.06) 0%, transparent 50%),
       var(--bg-base);
   }
 
@@ -171,9 +173,10 @@
   }
 
   .light .glass {
-    background: rgba(241, 243, 245, 0.85);
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(16px) saturate(120%);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    border: 1px solid var(--border-subtle);
   }
 
   /* Gradient text */

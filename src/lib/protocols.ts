@@ -5,6 +5,7 @@ export interface ProtocolContract {
   name: string
   address: `0x${string}`
   description: string
+  additionalAddresses?: `0x${string}`[]
 }
 
 export interface Protocol {
@@ -36,6 +37,7 @@ export const UNISWAP_PROTOCOL: Protocol = {
       id: 'uniswap-universal-router',
       name: 'Universal Router',
       address: '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD',
+      additionalAddresses: ['0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b'],
       description: 'Universal router for swaps and liquidity',
     },
     {
@@ -43,12 +45,6 @@ export const UNISWAP_PROTOCOL: Protocol = {
       name: 'PositionManager (V4)',
       address: '0x429ba70129df741b2ca2a85bc3a2a3328e5c09b4',
       description: 'Manage Uniswap V4 liquidity positions',
-    },
-    {
-      id: 'uniswap-universal-router-2',
-      name: 'Universal Router 2',
-      address: '0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b',
-      description: 'Universal router for swaps and liquidity',
     },
   ],
 }
@@ -97,15 +93,23 @@ export function getProtocolById(id: string): Protocol | undefined {
   return PROTOCOLS.find(p => p.id === id)
 }
 
+// Helper to get all addresses for a contract (including additional addresses)
+export function getContractAddresses(contract: ProtocolContract): `0x${string}`[] {
+  return [contract.address, ...(contract.additionalAddresses || [])]
+}
+
 // Helper to get all contract addresses for a protocol
 export function getProtocolContractAddresses(protocolId: string): `0x${string}`[] {
   const protocol = getProtocolById(protocolId)
-  return protocol ? protocol.contracts.map(c => c.address) : []
+  return protocol ? protocol.contracts.flatMap(getContractAddresses) : []
 }
 
 // Helper to check if an address is a valid protocol contract
 export function isValidProtocolContract(address: `0x${string}`): boolean {
+  const lowerAddr = address.toLowerCase()
   return PROTOCOLS.some(protocol =>
-    protocol.contracts.some(contract => contract.address.toLowerCase() === address.toLowerCase())
+    protocol.contracts.some(contract =>
+      getContractAddresses(contract).some(a => a.toLowerCase() === lowerAddr)
+    )
   )
 }
