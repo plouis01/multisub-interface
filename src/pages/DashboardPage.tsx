@@ -13,6 +13,7 @@ import { useContractAddresses } from '@/contexts/ContractAddressContext'
 import { useViewMode } from '@/contexts/ViewModeContext'
 import { ROUTES } from '@/router/routes'
 import { FadeInUp } from '@/components/ui/motion'
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
 
 export function DashboardPage() {
   const { isConfigured } = useContractAddresses()
@@ -55,15 +56,26 @@ export function DashboardPage() {
   return (
     <FadeInUp className="space-y-6">
       <StatsBar />
-      <div className="gap-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        <MyPermissionsCard />
-        <SpendingAllowanceCard address={address!} />
-        <ContractSetup />
-      </div>
-      <div className="gap-6 grid grid-cols-1 lg:grid-cols-2">
-        <SubAccountDashboard />
-        <AcquiredBalancesCard address={address!} />
-      </div>
+      {IS_CLAIM_ONLY_MODE ? (
+        // Claim-only mode: simplified layout without spending cards
+        <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
+          <MyPermissionsCard />
+          <ContractSetup />
+        </div>
+      ) : (
+        // Full mode: show spending and acquired balances cards
+        <>
+          <div className="gap-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            <MyPermissionsCard />
+            <SpendingAllowanceCard address={address!} />
+            <ContractSetup />
+          </div>
+          <div className="gap-6 grid grid-cols-1 lg:grid-cols-2">
+            <SubAccountDashboard />
+            <AcquiredBalancesCard address={address!} />
+          </div>
+        </>
+      )}
       {/* <TransactionHistory subAccount={address} /> */}
     </FadeInUp>
   )

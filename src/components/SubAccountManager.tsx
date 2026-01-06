@@ -8,7 +8,8 @@ import { CopyButton } from '@/components/ui/copy-button'
 import { TooltipIcon } from '@/components/ui/tooltip'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { ChevronDown, Pencil } from 'lucide-react'
-import { DEFI_INTERACTOR_ABI, ROLES, ROLE_NAMES, ROLE_DESCRIPTIONS } from '@/lib/contracts'
+import { DEFI_INTERACTOR_ABI, ALL_ROLES, ROLES, ROLE_NAMES, ROLE_DESCRIPTIONS } from '@/lib/contracts'
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
 import { useSubAccountNames } from '@/hooks/useSubAccountNames'
 import { ProtocolPermissions } from '@/components/ProtocolPermissions'
 import { SpendingLimits } from '@/components/SpendingLimits'
@@ -34,6 +35,8 @@ export function SubAccountManager() {
   const { addresses } = useContractAddresses()
   const { isSafeOwner } = useIsSafeOwner()
   const [newSubAccount, setNewSubAccount] = useState('')
+  // Claim-only mode uses grantClaim, full mode uses grantExecute/grantTransfer
+  const [grantClaim, setGrantClaim] = useState(false)
   const [grantExecute, setGrantExecute] = useState(false)
   const [grantTransfer, setGrantTransfer] = useState(false)
   const [setSpendingLimits, setSetSpendingLimits] = useState(false)
@@ -62,12 +65,20 @@ export function SubAccountManager() {
       return
     }
 
-    if (!grantExecute && !grantTransfer) {
-      toast.warning('Select at least one role')
-      return
+    // Validate role selection based on mode
+    if (IS_CLAIM_ONLY_MODE) {
+      if (!grantClaim) {
+        toast.warning('Select the Claim role')
+        return
+      }
+    } else {
+      if (!grantExecute && !grantTransfer) {
+        toast.warning('Select at least one role')
+        return
+      }
     }
 
-    if (setSpendingLimits) {
+    if (!IS_CLAIM_ONLY_MODE && setSpendingLimits) {
       const spendingBps = Math.floor(parseFloat(spendingLimit) * 100)
 
       if (spendingBps < 0 || spendingBps > 10000) {
@@ -87,11 +98,18 @@ export function SubAccountManager() {
     )
 
     const rolesToGrant: number[] = []
-    if (grantExecute && !existingAccount?.hasExecuteRole) {
-      rolesToGrant.push(ROLES.DEFI_EXECUTE_ROLE)
-    }
-    if (grantTransfer && !existingAccount?.hasTransferRole) {
-      rolesToGrant.push(ROLES.DEFI_TRANSFER_ROLE)
+    if (IS_CLAIM_ONLY_MODE) {
+      // In claim-only mode, check for claim role (same ID as execute role)
+      if (grantClaim && !existingAccount?.hasExecuteRole) {
+        rolesToGrant.push(ALL_ROLES.CLAIM_ROLE)
+      }
+    } else {
+      if (grantExecute && !existingAccount?.hasExecuteRole) {
+        rolesToGrant.push(ALL_ROLES.DEFI_EXECUTE_ROLE)
+      }
+      if (grantTransfer && !existingAccount?.hasTransferRole) {
+        rolesToGrant.push(ALL_ROLES.DEFI_TRANSFER_ROLE)
+      }
     }
 
     if (rolesToGrant.length === 0) {
@@ -99,35 +117,46 @@ export function SubAccountManager() {
       return
     }
 
-    // Build preview data
-    const roles: RoleChange[] = [
-      {
-        roleId: ROLES.DEFI_EXECUTE_ROLE,
-        roleName: ROLE_NAMES[ROLES.DEFI_EXECUTE_ROLE],
-        description: ROLE_DESCRIPTIONS[ROLES.DEFI_EXECUTE_ROLE],
-        action: rolesToGrant.includes(ROLES.DEFI_EXECUTE_ROLE) ? 'add' : 'unchanged',
-      },
-      {
-        roleId: ROLES.DEFI_TRANSFER_ROLE,
-        roleName: ROLE_NAMES[ROLES.DEFI_TRANSFER_ROLE],
-        description: ROLE_DESCRIPTIONS[ROLES.DEFI_TRANSFER_ROLE],
-        action: rolesToGrant.includes(ROLES.DEFI_TRANSFER_ROLE) ? 'add' : 'unchanged',
-      },
-    ].filter(r => r.action !== 'unchanged')
+    // Build preview data - varies based on mode
+    const roles: RoleChange[] = IS_CLAIM_ONLY_MODE
+      ? [
+          {
+            roleId: ALL_ROLES.CLAIM_ROLE,
+            roleName: ROLE_NAMES[ALL_ROLES.CLAIM_ROLE],
+            description: ROLE_DESCRIPTIONS[ALL_ROLES.CLAIM_ROLE],
+            action: rolesToGrant.includes(ALL_ROLES.CLAIM_ROLE) ? 'add' : 'unchanged',
+          },
+        ].filter(r => r.action !== 'unchanged')
+      : [
+          {
+            roleId: ALL_ROLES.DEFI_EXECUTE_ROLE,
+            roleName: ROLE_NAMES[ALL_ROLES.DEFI_EXECUTE_ROLE],
+            description: ROLE_DESCRIPTIONS[ALL_ROLES.DEFI_EXECUTE_ROLE],
+            action: rolesToGrant.includes(ALL_ROLES.DEFI_EXECUTE_ROLE) ? 'add' : 'unchanged',
+          },
+          {
+            roleId: ALL_ROLES.DEFI_TRANSFER_ROLE,
+            roleName: ROLE_NAMES[ALL_ROLES.DEFI_TRANSFER_ROLE],
+            description: ROLE_DESCRIPTIONS[ALL_ROLES.DEFI_TRANSFER_ROLE],
+            action: rolesToGrant.includes(ALL_ROLES.DEFI_TRANSFER_ROLE) ? 'add' : 'unchanged',
+          },
+        ].filter(r => r.action !== 'unchanged')
 
     const previewData: TransactionPreviewData = {
       type: 'add-subaccount',
       subAccountAddress: newSubAccount as `0x${string}`,
       roles,
-      spendingLimits: setSpendingLimits
-        ? {
-            before: null,
-            after: {
-              maxSpendingBps: Math.floor(parseFloat(spendingLimit) * 100),
-              windowDuration: 24 * 3600,
-            },
-          }
-        : undefined,
+      // Spending limits only in full mode
+      spendingLimits:
+        !IS_CLAIM_ONLY_MODE && setSpendingLimits
+          ? {
+              before: null,
+              after: {
+                maxSpendingBps: Math.floor(parseFloat(spendingLimit) * 100),
+                windowDuration: 24 * 3600,
+              },
+            }
+          : undefined,
     }
 
     // Show preview modal and execute on confirm
@@ -146,8 +175,8 @@ export function SubAccountManager() {
           })
         })
 
-        // Add setSubAccountLimits transaction if enabled
-        if (setSpendingLimits) {
+        // Add setSubAccountLimits transaction if enabled (only in full mode)
+        if (!IS_CLAIM_ONLY_MODE && setSpendingLimits) {
           const spendingBps = Math.floor(parseFloat(spendingLimit) * 100)
           const windowSeconds = 24 * 3600 // 24 hours fixed
 
@@ -169,6 +198,7 @@ export function SubAccountManager() {
 
         if (result.success) {
           setNewSubAccount('')
+          setGrantClaim(false)
           setGrantExecute(false)
           setGrantTransfer(false)
           setSetSpendingLimits(false)
@@ -230,107 +260,135 @@ export function SubAccountManager() {
               <div className="space-y-3">
                 <label className="block font-medium text-primary text-small">Roles</label>
                 <div className="space-y-3 bg-elevated-2 p-3 border border-subtle rounded-xl">
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="execute-role"
-                      checked={grantExecute}
-                      onChange={e => setGrantExecute((e.target as HTMLInputElement).checked)}
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor="execute-role"
-                        className="font-medium text-primary text-small cursor-pointer"
-                      >
-                        {ROLE_NAMES[ROLES.DEFI_EXECUTE_ROLE]}
-                      </label>
-                      <p className="mt-0.5 text-caption text-tertiary">
-                        {ROLE_DESCRIPTIONS[ROLES.DEFI_EXECUTE_ROLE]}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="transfer-role"
-                      checked={grantTransfer}
-                      onChange={e => setGrantTransfer((e.target as HTMLInputElement).checked)}
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor="transfer-role"
-                        className="font-medium text-primary text-small cursor-pointer"
-                      >
-                        {ROLE_NAMES[ROLES.DEFI_TRANSFER_ROLE]}
-                      </label>
-                      <p className="mt-0.5 text-caption text-tertiary">
-                        {ROLE_DESCRIPTIONS[ROLES.DEFI_TRANSFER_ROLE]}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="block font-medium text-primary text-small">
-                  Spending Limits (Optional)
-                </label>
-                <div className="bg-elevated-2 p-3 border border-subtle rounded-xl">
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="set-limits"
-                      checked={setSpendingLimits}
-                      onChange={e => setSetSpendingLimits((e.target as HTMLInputElement).checked)}
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor="set-limits"
-                        className="font-medium text-primary text-small cursor-pointer"
-                      >
-                        Set spending limits now
-                      </label>
-                      <p className="mt-0.5 text-caption text-tertiary">
-                        Configure spending restrictions for this sub-account (can be set later,
-                        default 5%)
-                      </p>
-                    </div>
-                  </div>
-
-                  {setSpendingLimits && (
-                    <div className="mt-4 pl-8">
-                      <div className="space-y-2">
-                        <label className="flex items-center gap-2 font-medium text-small">
-                          Spending Limit
-                          <TooltipIcon content="Maximum spending as percentage of portfolio value per 24-hour window" />
+                  {IS_CLAIM_ONLY_MODE ? (
+                    // Claim-only mode: single checkbox
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="claim-role"
+                        checked={grantClaim}
+                        onChange={e => setGrantClaim((e.target as HTMLInputElement).checked)}
+                      />
+                      <div className="flex-1">
+                        <label
+                          htmlFor="claim-role"
+                          className="font-medium text-primary text-small cursor-pointer"
+                        >
+                          {ROLE_NAMES[ALL_ROLES.CLAIM_ROLE]}
                         </label>
-                        <div className="flex items-center gap-3">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.5"
-                            value={spendingLimit}
-                            onChange={e => setSpendingLimit(e.target.value)}
-                            placeholder="5"
-                            className="flex-1"
-                          />
-                          <span className="min-w-[30px] font-medium text-small text-tertiary">
-                            %
-                          </span>
-                          {inputAllowanceUSD !== null && (
-                            <span className="text-muted-foreground text-sm">
-                              ≈ ${formatUSD(inputAllowanceUSD)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-caption text-tertiary">
-                          Limit updates may take up to 2 minutes to apply.
-                          <br />
-                          Time window fixed at 24 hours.
+                        <p className="mt-0.5 text-caption text-tertiary">
+                          {ROLE_DESCRIPTIONS[ALL_ROLES.CLAIM_ROLE]}
                         </p>
                       </div>
                     </div>
+                  ) : (
+                    // Full mode: execute and transfer checkboxes
+                    <>
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="execute-role"
+                          checked={grantExecute}
+                          onChange={e => setGrantExecute((e.target as HTMLInputElement).checked)}
+                        />
+                        <div className="flex-1">
+                          <label
+                            htmlFor="execute-role"
+                            className="font-medium text-primary text-small cursor-pointer"
+                          >
+                            {ROLE_NAMES[ALL_ROLES.DEFI_EXECUTE_ROLE]}
+                          </label>
+                          <p className="mt-0.5 text-caption text-tertiary">
+                            {ROLE_DESCRIPTIONS[ALL_ROLES.DEFI_EXECUTE_ROLE]}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="transfer-role"
+                          checked={grantTransfer}
+                          onChange={e => setGrantTransfer((e.target as HTMLInputElement).checked)}
+                        />
+                        <div className="flex-1">
+                          <label
+                            htmlFor="transfer-role"
+                            className="font-medium text-primary text-small cursor-pointer"
+                          >
+                            {ROLE_NAMES[ALL_ROLES.DEFI_TRANSFER_ROLE]}
+                          </label>
+                          <p className="mt-0.5 text-caption text-tertiary">
+                            {ROLE_DESCRIPTIONS[ALL_ROLES.DEFI_TRANSFER_ROLE]}
+                          </p>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
+
+              {/* Spending Limits - only in full mode */}
+              {!IS_CLAIM_ONLY_MODE && (
+                <div className="space-y-3">
+                  <label className="block font-medium text-primary text-small">
+                    Spending Limits (Optional)
+                  </label>
+                  <div className="bg-elevated-2 p-3 border border-subtle rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="set-limits"
+                        checked={setSpendingLimits}
+                        onChange={e => setSetSpendingLimits((e.target as HTMLInputElement).checked)}
+                      />
+                      <div className="flex-1">
+                        <label
+                          htmlFor="set-limits"
+                          className="font-medium text-primary text-small cursor-pointer"
+                        >
+                          Set spending limits now
+                        </label>
+                        <p className="mt-0.5 text-caption text-tertiary">
+                          Configure spending restrictions for this sub-account (can be set later,
+                          default 5%)
+                        </p>
+                      </div>
+                    </div>
+
+                    {setSpendingLimits && (
+                      <div className="mt-4 pl-8">
+                        <div className="space-y-2">
+                          <label className="flex items-center gap-2 font-medium text-small">
+                            Spending Limit
+                            <TooltipIcon content="Maximum spending as percentage of portfolio value per 24-hour window" />
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.5"
+                              value={spendingLimit}
+                              onChange={e => setSpendingLimit(e.target.value)}
+                              placeholder="5"
+                              className="flex-1"
+                            />
+                            <span className="min-w-[30px] font-medium text-small text-tertiary">
+                              %
+                            </span>
+                            {inputAllowanceUSD !== null && (
+                              <span className="text-muted-foreground text-sm">
+                                ≈ ${formatUSD(inputAllowanceUSD)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-caption text-tertiary">
+                            Limit updates may take up to 2 minutes to apply.
+                            <br />
+                            Time window fixed at 24 hours.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Button
                 onClick={handleAddSubAccount}
@@ -398,13 +456,18 @@ interface SubAccountRowProps {
 
 function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState<'spending' | 'protocols'>('spending')
+  // In claim-only mode, default to protocols tab since spending tab is hidden
+  const [activeTab, setActiveTab] = useState<'spending' | 'protocols'>(
+    IS_CLAIM_ONLY_MODE ? 'protocols' : 'spending'
+  )
   const [isRolesPopoverOpen, setIsRolesPopoverOpen] = useState(false)
   const [isNamePopoverOpen, setIsNamePopoverOpen] = useState(false)
   const [nameInputValue, setNameInputValue] = useState('')
 
-  const { data: hasExecuteRole } = useHasRole(account, ROLES.DEFI_EXECUTE_ROLE)
-  const { data: hasTransferRole } = useHasRole(account, ROLES.DEFI_TRANSFER_ROLE)
+  const { data: hasExecuteRole } = useHasRole(account, ALL_ROLES.DEFI_EXECUTE_ROLE)
+  const { data: hasTransferRole } = useHasRole(account, ALL_ROLES.DEFI_TRANSFER_ROLE)
+  // In claim-only mode, hasClaimRole is same as hasExecuteRole (same ID)
+  const hasClaimRole = hasExecuteRole
   const { isSafeOwner } = useIsSafeOwner()
 
   // Get full sub-account state for preview context
@@ -413,6 +476,7 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
   const accountName = getAccountName(account)
 
   // Local editing state - tracks checkbox values during modification
+  const [localClaimRole, setLocalClaimRole] = useState<boolean>(false)
   const [localExecuteRole, setLocalExecuteRole] = useState<boolean>(false)
   const [localTransferRole, setLocalTransferRole] = useState<boolean>(false)
 
@@ -420,6 +484,7 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
   useEffect(() => {
     if (hasExecuteRole !== undefined) {
       setLocalExecuteRole(hasExecuteRole)
+      setLocalClaimRole(hasExecuteRole) // Same ID
     }
     if (hasTransferRole !== undefined) {
       setLocalTransferRole(hasTransferRole)
@@ -453,16 +518,22 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
 
   // Compute if there are changes to show Update/Cancel buttons
   const hasChanges = useMemo(() => {
-    // Return false if contract state is still loading
+    if (IS_CLAIM_ONLY_MODE) {
+      if (hasClaimRole === undefined) return false
+      return localClaimRole !== hasClaimRole
+    }
+    // Full mode
     if (hasExecuteRole === undefined || hasTransferRole === undefined) {
       return false
     }
-
-    // Compare local state with contract state
     return localExecuteRole !== hasExecuteRole || localTransferRole !== hasTransferRole
-  }, [localExecuteRole, localTransferRole, hasExecuteRole, hasTransferRole])
+  }, [localClaimRole, localExecuteRole, localTransferRole, hasClaimRole, hasExecuteRole, hasTransferRole])
 
   // Event handlers
+  const handleClaimChange = (checked: boolean) => {
+    setLocalClaimRole(checked)
+  }
+
   const handleExecuteChange = (checked: boolean) => {
     setLocalExecuteRole(checked)
   }
@@ -477,25 +548,36 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
       return
     }
 
-    // Build role changes for preview
+    // Build role changes for preview - varies based on mode
     const roles: RoleChange[] = []
 
-    if (hasExecuteRole !== undefined && localExecuteRole !== hasExecuteRole) {
-      roles.push({
-        roleId: ROLES.DEFI_EXECUTE_ROLE,
-        roleName: ROLE_NAMES[ROLES.DEFI_EXECUTE_ROLE],
-        description: ROLE_DESCRIPTIONS[ROLES.DEFI_EXECUTE_ROLE],
-        action: localExecuteRole ? 'add' : 'remove',
-      })
-    }
+    if (IS_CLAIM_ONLY_MODE) {
+      if (hasClaimRole !== undefined && localClaimRole !== hasClaimRole) {
+        roles.push({
+          roleId: ALL_ROLES.CLAIM_ROLE,
+          roleName: ROLE_NAMES[ALL_ROLES.CLAIM_ROLE],
+          description: ROLE_DESCRIPTIONS[ALL_ROLES.CLAIM_ROLE],
+          action: localClaimRole ? 'add' : 'remove',
+        })
+      }
+    } else {
+      if (hasExecuteRole !== undefined && localExecuteRole !== hasExecuteRole) {
+        roles.push({
+          roleId: ALL_ROLES.DEFI_EXECUTE_ROLE,
+          roleName: ROLE_NAMES[ALL_ROLES.DEFI_EXECUTE_ROLE],
+          description: ROLE_DESCRIPTIONS[ALL_ROLES.DEFI_EXECUTE_ROLE],
+          action: localExecuteRole ? 'add' : 'remove',
+        })
+      }
 
-    if (hasTransferRole !== undefined && localTransferRole !== hasTransferRole) {
-      roles.push({
-        roleId: ROLES.DEFI_TRANSFER_ROLE,
-        roleName: ROLE_NAMES[ROLES.DEFI_TRANSFER_ROLE],
-        description: ROLE_DESCRIPTIONS[ROLES.DEFI_TRANSFER_ROLE],
-        action: localTransferRole ? 'add' : 'remove',
-      })
+      if (hasTransferRole !== undefined && localTransferRole !== hasTransferRole) {
+        roles.push({
+          roleId: ALL_ROLES.DEFI_TRANSFER_ROLE,
+          roleName: ROLE_NAMES[ALL_ROLES.DEFI_TRANSFER_ROLE],
+          description: ROLE_DESCRIPTIONS[ALL_ROLES.DEFI_TRANSFER_ROLE],
+          action: localTransferRole ? 'add' : 'remove',
+        })
+      }
     }
 
     if (roles.length === 0) {
@@ -506,8 +588,8 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
     // Build full state with role changes applied
     const fullStateWithChanges = {
       roles: mergeRolesWithChanges(currentFullState.roles, roles),
-      spendingLimits: currentFullState.spendingLimits, // Unchanged
-      protocols: currentFullState.protocols, // Unchanged
+      spendingLimits: IS_CLAIM_ONLY_MODE ? null : currentFullState.spendingLimits,
+      protocols: currentFullState.protocols,
     }
 
     const previewData: TransactionPreviewData = {
@@ -520,28 +602,42 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
     showPreview(previewData, async () => {
       const transactions: Array<{ to: `0x${string}`; data: `0x${string}` }> = []
 
-      // Build transactions for Execute role if changed
-      if (hasExecuteRole !== undefined && localExecuteRole !== hasExecuteRole) {
-        const functionName = localExecuteRole ? 'grantRole' : 'revokeRole'
-        transactions.push({
-          to: addresses.defiInteractor,
-          data: encodeContractCall(addresses.defiInteractor, DEFI_INTERACTOR_ABI, functionName, [
-            account,
-            ROLES.DEFI_EXECUTE_ROLE,
-          ]),
-        })
-      }
+      if (IS_CLAIM_ONLY_MODE) {
+        // Build transaction for Claim role if changed
+        if (hasClaimRole !== undefined && localClaimRole !== hasClaimRole) {
+          const functionName = localClaimRole ? 'grantRole' : 'revokeRole'
+          transactions.push({
+            to: addresses.defiInteractor,
+            data: encodeContractCall(addresses.defiInteractor, DEFI_INTERACTOR_ABI, functionName, [
+              account,
+              ALL_ROLES.CLAIM_ROLE,
+            ]),
+          })
+        }
+      } else {
+        // Build transactions for Execute role if changed
+        if (hasExecuteRole !== undefined && localExecuteRole !== hasExecuteRole) {
+          const functionName = localExecuteRole ? 'grantRole' : 'revokeRole'
+          transactions.push({
+            to: addresses.defiInteractor,
+            data: encodeContractCall(addresses.defiInteractor, DEFI_INTERACTOR_ABI, functionName, [
+              account,
+              ALL_ROLES.DEFI_EXECUTE_ROLE,
+            ]),
+          })
+        }
 
-      // Build transactions for Transfer role if changed
-      if (hasTransferRole !== undefined && localTransferRole !== hasTransferRole) {
-        const functionName = localTransferRole ? 'grantRole' : 'revokeRole'
-        transactions.push({
-          to: addresses.defiInteractor,
-          data: encodeContractCall(addresses.defiInteractor, DEFI_INTERACTOR_ABI, functionName, [
-            account,
-            ROLES.DEFI_TRANSFER_ROLE,
-          ]),
-        })
+        // Build transactions for Transfer role if changed
+        if (hasTransferRole !== undefined && localTransferRole !== hasTransferRole) {
+          const functionName = localTransferRole ? 'grantRole' : 'revokeRole'
+          transactions.push({
+            to: addresses.defiInteractor,
+            data: encodeContractCall(addresses.defiInteractor, DEFI_INTERACTOR_ABI, functionName, [
+              account,
+              ALL_ROLES.DEFI_TRANSFER_ROLE,
+            ]),
+          })
+        }
       }
 
       try {
@@ -567,6 +663,7 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
   }
 
   const handleCancel = () => {
+    setLocalClaimRole(hasClaimRole || false)
     setLocalExecuteRole(hasExecuteRole || false)
     setLocalTransferRole(hasTransferRole || false)
   }
@@ -682,14 +779,27 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
             </div>
           )}
           <div className="flex flex-wrap gap-2 mt-2">
-            {hasExecuteRole && <Badge variant="info">{ROLE_NAMES[ROLES.DEFI_EXECUTE_ROLE]}</Badge>}
-            {hasTransferRole && (
-              <Badge variant="success">{ROLE_NAMES[ROLES.DEFI_TRANSFER_ROLE]}</Badge>
+            {IS_CLAIM_ONLY_MODE ? (
+              // Claim-only mode: show claim badge
+              <>
+                {hasClaimRole && <Badge variant="info">{ROLE_NAMES[ALL_ROLES.CLAIM_ROLE]}</Badge>}
+                {!hasClaimRole && <Badge variant="outline">No Roles</Badge>}
+              </>
+            ) : (
+              // Full mode: show execute/transfer badges
+              <>
+                {hasExecuteRole && (
+                  <Badge variant="info">{ROLE_NAMES[ALL_ROLES.DEFI_EXECUTE_ROLE]}</Badge>
+                )}
+                {hasTransferRole && (
+                  <Badge variant="success">{ROLE_NAMES[ALL_ROLES.DEFI_TRANSFER_ROLE]}</Badge>
+                )}
+                {!hasExecuteRole && !hasTransferRole && <Badge variant="outline">No Roles</Badge>}
+              </>
             )}
-            {!hasExecuteRole && !hasTransferRole && <Badge variant="outline">No Roles</Badge>}
           </div>
-          {/* Spending Progress Bar */}
-          {maxAllowance !== null && maxAllowance > 0n && (
+          {/* Spending Progress Bar - only in full mode */}
+          {!IS_CLAIM_ONLY_MODE && maxAllowance !== null && maxAllowance > 0n && (
             <div className="mt-2 sm:mt-3 w-full">
               <div className="flex justify-between mb-1 text-tertiary text-xs">
                 <span>Used: {percentUsed.toFixed(1)}%</span>
@@ -739,55 +849,98 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
               <div className="space-y-3">
                 <p className="font-medium text-muted-foreground text-sm">Edit Roles</p>
 
-                {/* Checkboxes */}
+                {/* Checkboxes - varies based on mode */}
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id={`execute-${account}`}
-                      checked={localExecuteRole}
-                      onChange={e => handleExecuteChange((e.target as HTMLInputElement).checked)}
-                      disabled={isRevoking}
-                    />
-                    <label
-                      htmlFor={`execute-${account}`}
-                      className="text-sm cursor-pointer"
-                    >
-                      Execute
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id={`transfer-${account}`}
-                      checked={localTransferRole}
-                      onChange={e => handleTransferChange((e.target as HTMLInputElement).checked)}
-                      disabled={isRevoking}
-                    />
-                    <label
-                      htmlFor={`transfer-${account}`}
-                      className="text-sm cursor-pointer"
-                    >
-                      Transfer
-                    </label>
-                  </div>
+                  {IS_CLAIM_ONLY_MODE ? (
+                    // Claim-only mode: single checkbox
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`claim-${account}`}
+                        checked={localClaimRole}
+                        onChange={e => handleClaimChange((e.target as HTMLInputElement).checked)}
+                        disabled={isRevoking}
+                      />
+                      <label
+                        htmlFor={`claim-${account}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        Claim
+                      </label>
+                    </div>
+                  ) : (
+                    // Full mode: execute and transfer checkboxes
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`execute-${account}`}
+                          checked={localExecuteRole}
+                          onChange={e => handleExecuteChange((e.target as HTMLInputElement).checked)}
+                          disabled={isRevoking}
+                        />
+                        <label
+                          htmlFor={`execute-${account}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          Execute
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`transfer-${account}`}
+                          checked={localTransferRole}
+                          onChange={e => handleTransferChange((e.target as HTMLInputElement).checked)}
+                          disabled={isRevoking}
+                        />
+                        <label
+                          htmlFor={`transfer-${account}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          Transfer
+                        </label>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Actions */}
                 {hasChanges && (
                   <div
-                    className={`flex gap-2 pt-2 border-t ${!localExecuteRole && !localTransferRole ? 'flex-col' : ''}`}
+                    className={`flex gap-2 pt-2 border-t ${
+                      IS_CLAIM_ONLY_MODE
+                        ? !localClaimRole
+                          ? 'flex-col'
+                          : ''
+                        : !localExecuteRole && !localTransferRole
+                          ? 'flex-col'
+                          : ''
+                    }`}
                   >
                     <Button
                       size="sm"
-                      variant={!localExecuteRole && !localTransferRole ? 'destructive' : 'default'}
+                      variant={
+                        IS_CLAIM_ONLY_MODE
+                          ? !localClaimRole
+                            ? 'destructive'
+                            : 'default'
+                          : !localExecuteRole && !localTransferRole
+                            ? 'destructive'
+                            : 'default'
+                      }
                       onClick={handleUpdatePermissions}
                       className="flex-1 min-h-10"
                       disabled={isRevoking || isUpdating}
                     >
-                      {!localExecuteRole && !localTransferRole
-                        ? 'Remove sub-account'
-                        : isUpdating
-                          ? 'Updating...'
-                          : 'Update'}
+                      {IS_CLAIM_ONLY_MODE
+                        ? !localClaimRole
+                          ? 'Remove sub-account'
+                          : isUpdating
+                            ? 'Updating...'
+                            : 'Update'
+                        : !localExecuteRole && !localTransferRole
+                          ? 'Remove sub-account'
+                          : isUpdating
+                            ? 'Updating...'
+                            : 'Update'}
                     </Button>
                     <Button
                       size="sm"
@@ -808,33 +961,41 @@ function SubAccountRow({ account, isRevoking, index }: SubAccountRowProps) {
 
       {isExpanded && (
         <div className="bg-elevated-2 p-3 sm:p-4 border-subtle border-t">
-          {/* Tab Navigation */}
-          <div className="flex gap-1 bg-elevated mb-4 p-1 rounded-lg">
-            <button
-              onClick={() => setActiveTab('spending')}
-              className={`flex-1 px-3 py-2 text-small font-medium rounded-md transition-all ${
-                activeTab === 'spending'
-                  ? 'bg-elevated-2 text-primary shadow-sm'
-                  : 'text-tertiary hover:text-secondary'
-              }`}
-            >
-              Spending Limits
-            </button>
-            <button
-              onClick={() => setActiveTab('protocols')}
-              className={`flex-1 px-3 py-2 text-small font-medium rounded-md transition-all ${
-                activeTab === 'protocols'
-                  ? 'bg-elevated-2 text-primary shadow-sm'
-                  : 'text-tertiary hover:text-secondary'
-              }`}
-            >
-              Protocol Permissions
-            </button>
-          </div>
+          {/* Tab Navigation - in claim-only mode, only show Protocol Permissions */}
+          {IS_CLAIM_ONLY_MODE ? (
+            // Claim-only mode: no tabs needed, just show protocols
+            <ProtocolPermissions subAccountAddress={account} />
+          ) : (
+            // Full mode: show both tabs
+            <>
+              <div className="flex gap-1 bg-elevated mb-4 p-1 rounded-lg">
+                <button
+                  onClick={() => setActiveTab('spending')}
+                  className={`flex-1 px-3 py-2 text-small font-medium rounded-md transition-all ${
+                    activeTab === 'spending'
+                      ? 'bg-elevated-2 text-primary shadow-sm'
+                      : 'text-tertiary hover:text-secondary'
+                  }`}
+                >
+                  Spending Limits
+                </button>
+                <button
+                  onClick={() => setActiveTab('protocols')}
+                  className={`flex-1 px-3 py-2 text-small font-medium rounded-md transition-all ${
+                    activeTab === 'protocols'
+                      ? 'bg-elevated-2 text-primary shadow-sm'
+                      : 'text-tertiary hover:text-secondary'
+                  }`}
+                >
+                  Protocol Permissions
+                </button>
+              </div>
 
-          {/* Tab Content */}
-          {activeTab === 'spending' && <SpendingLimits subAccountAddress={account} />}
-          {activeTab === 'protocols' && <ProtocolPermissions subAccountAddress={account} />}
+              {/* Tab Content */}
+              {activeTab === 'spending' && <SpendingLimits subAccountAddress={account} />}
+              {activeTab === 'protocols' && <ProtocolPermissions subAccountAddress={account} />}
+            </>
+          )}
         </div>
       )}
     </div>
