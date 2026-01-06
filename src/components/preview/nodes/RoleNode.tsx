@@ -1,9 +1,10 @@
 import { forwardRef } from 'react'
 import { motion } from 'framer-motion'
-import { Zap, Send, Plus, Minus, Info } from 'lucide-react'
+import { Zap, Send, Plus, Minus, Info, Coins } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RoleChange, ChangeAction } from '@/types/transactionPreview'
 import { Tooltip } from '@/components/ui/tooltip'
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
 
 interface RoleNodeProps {
   role: RoleChange
@@ -12,19 +13,21 @@ interface RoleNodeProps {
 
 const getRoleIcon = (roleId: number) => {
   switch (roleId) {
-    case 1: // DEFI_EXECUTE_ROLE
-      return Zap
+    case 1: // DEFI_EXECUTE_ROLE or CLAIM_ROLE
+      return IS_CLAIM_ONLY_MODE ? Coins : Zap
     case 2: // DEFI_TRANSFER_ROLE
       return Send
     default:
-      return Zap
+      return IS_CLAIM_ONLY_MODE ? Coins : Zap
   }
 }
 
 const getRoleTooltip = (roleId: number) => {
   switch (roleId) {
-    case 1: // DEFI_EXECUTE_ROLE
-      return 'Allows execution of DeFi transactions (swaps, deposits, withdrawals) on approved protocols'
+    case 1: // DEFI_EXECUTE_ROLE or CLAIM_ROLE
+      return IS_CLAIM_ONLY_MODE
+        ? 'Allows claiming rewards from approved protocols'
+        : 'Allows execution of DeFi transactions (swaps, deposits, withdrawals) on approved protocols'
     case 2: // DEFI_TRANSFER_ROLE
       return 'Allows token transfers to external addresses'
     default:
