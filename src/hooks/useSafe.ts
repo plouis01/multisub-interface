@@ -1,7 +1,8 @@
 import React from 'react'
 import { useAccount, useReadContract, usePublicClient } from 'wagmi'
 import { useContractAddresses } from '@/contexts/ContractAddressContext'
-import { DEFI_INTERACTOR_ABI, SAFE_ABI, ROLES } from '@/lib/contracts'
+import { DEFI_INTERACTOR_ABI, SAFE_ABI, ALL_ROLES } from '@/lib/contracts'
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
 import { useQuery } from '@tanstack/react-query'
 import type { SubAccount } from '@/types'
 import { AcquiredTokenWithTimestamp } from '@/lib/subgraph'
@@ -125,18 +126,35 @@ export function useManagedAccounts() {
       }
 
       // Fetch accounts for each role using the contract's getter functions
+      if (IS_CLAIM_ONLY_MODE) {
+        // In claim-only mode, only fetch accounts with the claim role
+        const claimAccounts = (await publicClient.readContract({
+          address: addresses.defiInteractor,
+          abi: DEFI_INTERACTOR_ABI,
+          functionName: 'getSubaccountsByRole',
+          args: [ALL_ROLES.CLAIM_ROLE],
+        })) as `0x${string}`[]
+
+        return claimAccounts.map(address => ({
+          address,
+          hasExecuteRole: true, // Claim role uses same ID as execute
+          hasTransferRole: false,
+        }))
+      }
+
+      // Full mode: fetch both execute and transfer role accounts
       const [executeAccounts, transferAccounts] = await Promise.all([
         publicClient.readContract({
           address: addresses.defiInteractor,
           abi: DEFI_INTERACTOR_ABI,
           functionName: 'getSubaccountsByRole',
-          args: [ROLES.DEFI_EXECUTE_ROLE],
+          args: [ALL_ROLES.DEFI_EXECUTE_ROLE],
         }) as Promise<`0x${string}`[]>,
         publicClient.readContract({
           address: addresses.defiInteractor,
           abi: DEFI_INTERACTOR_ABI,
           functionName: 'getSubaccountsByRole',
-          args: [ROLES.DEFI_TRANSFER_ROLE],
+          args: [ALL_ROLES.DEFI_TRANSFER_ROLE],
         }) as Promise<`0x${string}`[]>,
       ])
 

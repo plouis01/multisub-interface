@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useHasRole, useSubAccountLimits, useAllowedAddresses } from './useSafe'
-import { ROLES, ROLE_NAMES, ROLE_DESCRIPTIONS } from '@/lib/contracts'
+import { ALL_ROLES, ROLE_NAMES, ROLE_DESCRIPTIONS } from '@/lib/contracts'
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
 import { PROTOCOLS, getContractAddresses } from '@/lib/protocols'
 import type {
   RoleChange,
@@ -15,17 +16,20 @@ import type {
  * Used to display full context in transaction previews
  */
 export function useSubAccountFullState(subAccountAddress?: `0x${string}`) {
-  // Fetch current roles
+  // Fetch current roles - in claim-only mode, we use CLAIM_ROLE (same ID as DEFI_EXECUTE_ROLE)
   const { data: hasExecuteRole, isLoading: loadingExecute } = useHasRole(
     subAccountAddress,
-    ROLES.DEFI_EXECUTE_ROLE
+    ALL_ROLES.DEFI_EXECUTE_ROLE
   )
   const { data: hasTransferRole, isLoading: loadingTransfer } = useHasRole(
     subAccountAddress,
-    ROLES.DEFI_TRANSFER_ROLE
+    ALL_ROLES.DEFI_TRANSFER_ROLE
   )
 
-  // Fetch spending limits
+  // In claim-only mode, hasClaimRole is the same as hasExecuteRole (same ID)
+  const hasClaimRole = hasExecuteRole
+
+  // Fetch spending limits (not used in claim-only mode but kept for consistency)
   const { data: limitsData, isLoading: loadingLimits } = useSubAccountLimits(subAccountAddress)
 
   // Collect all protocol addresses to check
@@ -45,28 +49,40 @@ export function useSubAccountFullState(subAccountAddress?: `0x${string}`) {
     allProtocolAddresses
   )
 
-  // Build roles state
+  // Build roles state - varies based on mode
   const roles = useMemo<RoleChange[]>(() => {
+    if (IS_CLAIM_ONLY_MODE) {
+      return [
+        {
+          roleId: ALL_ROLES.CLAIM_ROLE,
+          roleName: ROLE_NAMES[ALL_ROLES.CLAIM_ROLE],
+          description: ROLE_DESCRIPTIONS[ALL_ROLES.CLAIM_ROLE],
+          action: 'unchanged',
+          isActive: Boolean(hasClaimRole),
+        },
+      ]
+    }
     return [
       {
-        roleId: ROLES.DEFI_EXECUTE_ROLE,
-        roleName: ROLE_NAMES[ROLES.DEFI_EXECUTE_ROLE],
-        description: ROLE_DESCRIPTIONS[ROLES.DEFI_EXECUTE_ROLE],
+        roleId: ALL_ROLES.DEFI_EXECUTE_ROLE,
+        roleName: ROLE_NAMES[ALL_ROLES.DEFI_EXECUTE_ROLE],
+        description: ROLE_DESCRIPTIONS[ALL_ROLES.DEFI_EXECUTE_ROLE],
         action: 'unchanged',
         isActive: Boolean(hasExecuteRole),
       },
       {
-        roleId: ROLES.DEFI_TRANSFER_ROLE,
-        roleName: ROLE_NAMES[ROLES.DEFI_TRANSFER_ROLE],
-        description: ROLE_DESCRIPTIONS[ROLES.DEFI_TRANSFER_ROLE],
+        roleId: ALL_ROLES.DEFI_TRANSFER_ROLE,
+        roleName: ROLE_NAMES[ALL_ROLES.DEFI_TRANSFER_ROLE],
+        description: ROLE_DESCRIPTIONS[ALL_ROLES.DEFI_TRANSFER_ROLE],
         action: 'unchanged',
         isActive: Boolean(hasTransferRole),
       },
     ]
-  }, [hasExecuteRole, hasTransferRole])
+  }, [hasExecuteRole, hasTransferRole, hasClaimRole])
 
-  // Build spending limits state
+  // Build spending limits state (not used in claim-only mode)
   const spendingLimits = useMemo<SpendingLimitChange | null>(() => {
+    if (IS_CLAIM_ONLY_MODE) return null
     if (!limitsData) return null
     const [maxSpendingBps, windowDuration] = limitsData as [bigint, bigint]
     // Only return if limits are actually set (non-zero)
@@ -121,6 +137,7 @@ export function useSubAccountFullState(subAccountAddress?: `0x${string}`) {
     protocols,
     hasExecuteRole: Boolean(hasExecuteRole),
     hasTransferRole: Boolean(hasTransferRole),
+    hasClaimRole: Boolean(hasClaimRole),
     allowedAddresses: allowedAddresses || new Set<`0x${string}`>(),
     isLoading,
   }

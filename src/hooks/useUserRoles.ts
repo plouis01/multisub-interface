@@ -1,6 +1,7 @@
 import { useAccount } from 'wagmi'
 import { useIsSafeOwner, useHasRole } from '@/hooks/useSafe'
-import { ROLES } from '@/lib/contracts'
+import { ALL_ROLES } from '@/lib/contracts'
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
 
 export type ViewMode = 'owner' | 'subaccount'
 
@@ -14,14 +15,19 @@ export function useUserRoles() {
 
   const { data: hasExecuteRole, isLoading: executeLoading } = useHasRole(
     address,
-    ROLES.DEFI_EXECUTE_ROLE
+    ALL_ROLES.DEFI_EXECUTE_ROLE
   )
   const { data: hasTransferRole, isLoading: transferLoading } = useHasRole(
     address,
-    ROLES.DEFI_TRANSFER_ROLE
+    ALL_ROLES.DEFI_TRANSFER_ROLE
   )
 
-  const isSubAccount = Boolean(hasExecuteRole || hasTransferRole)
+  // In claim-only mode, hasClaimRole is same as hasExecuteRole (same ID)
+  const hasClaimRole = hasExecuteRole
+
+  const isSubAccount = IS_CLAIM_ONLY_MODE
+    ? Boolean(hasClaimRole)
+    : Boolean(hasExecuteRole || hasTransferRole)
   const isDualRole = isSafeOwner && isSubAccount
   const isLoading = ownerLoading || executeLoading || transferLoading
 
@@ -31,6 +37,7 @@ export function useUserRoles() {
     isDualRole,
     hasExecuteRole: Boolean(hasExecuteRole),
     hasTransferRole: Boolean(hasTransferRole),
+    hasClaimRole: Boolean(hasClaimRole),
     isLoading,
   }
 }
