@@ -3,6 +3,7 @@
 export {
   DEFI_INTERACTOR_ABI,
   OperationType,
+  ALL_ROLES,
   ROLES,
   ROLE_NAMES,
   ROLE_DESCRIPTIONS,

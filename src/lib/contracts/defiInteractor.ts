@@ -1,3 +1,5 @@
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
+
 // DeFiInteractor contract ABI - Updated for new oracle-based architecture
 export const DEFI_INTERACTOR_ABI = [
   // ============ Constants ============
@@ -559,19 +561,29 @@ export enum OperationType {
   APPROVE = 5,
 }
 
-// Role constants
-export const ROLES = {
+// All possible role IDs
+export const ALL_ROLES = {
+  CLAIM_ROLE: 1,
   DEFI_EXECUTE_ROLE: 1,
   DEFI_TRANSFER_ROLE: 2,
 } as const
 
-export const ROLE_NAMES = {
-  [ROLES.DEFI_EXECUTE_ROLE]: 'Execute',
-  [ROLES.DEFI_TRANSFER_ROLE]: 'Transfer',
-} as const
+// Role constants - varies based on mode
+export const ROLES = IS_CLAIM_ONLY_MODE
+  ? ({ CLAIM_ROLE: 1 } as const)
+  : ({ DEFI_EXECUTE_ROLE: 1, DEFI_TRANSFER_ROLE: 2 } as const)
 
-export const ROLE_DESCRIPTIONS = {
-  [ROLES.DEFI_EXECUTE_ROLE]:
-    'Can execute protocol interactions (limited by spending allowance tracked by oracle)',
-  [ROLES.DEFI_TRANSFER_ROLE]: 'Can transfer tokens from Safe (costs spending allowance)',
-} as const
+export const ROLE_NAMES: Record<number, string> = IS_CLAIM_ONLY_MODE
+  ? { [ALL_ROLES.CLAIM_ROLE]: 'Claim' }
+  : {
+      [ALL_ROLES.DEFI_EXECUTE_ROLE]: 'Execute',
+      [ALL_ROLES.DEFI_TRANSFER_ROLE]: 'Transfer',
+    }
+
+export const ROLE_DESCRIPTIONS: Record<number, string> = IS_CLAIM_ONLY_MODE
+  ? { [ALL_ROLES.CLAIM_ROLE]: 'Can claim rewards from allowed protocols' }
+  : {
+      [ALL_ROLES.DEFI_EXECUTE_ROLE]:
+        'Can execute protocol interactions (limited by spending allowance tracked by oracle)',
+      [ALL_ROLES.DEFI_TRANSFER_ROLE]: 'Can transfer tokens from Safe (costs spending allowance)',
+    }
