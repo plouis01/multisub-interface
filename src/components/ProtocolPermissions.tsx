@@ -13,7 +13,11 @@ import { useSubAccountFullState, mergeProtocolsWithChanges } from '@/hooks/useSu
 import { TRANSACTION_TYPES } from '@/lib/transactionTypes'
 import { useToast } from '@/contexts/ToastContext'
 import { useTransactionPreviewContext } from '@/contexts/TransactionPreviewContext'
-import type { TransactionPreviewData, ProtocolChange, ContractChange } from '@/types/transactionPreview'
+import type {
+  TransactionPreviewData,
+  ProtocolChange,
+  ContractChange,
+} from '@/types/transactionPreview'
 
 interface ProtocolPermissionsProps {
   subAccountAddress: `0x${string}`
@@ -103,6 +107,9 @@ export function ProtocolPermissions({ subAccountAddress }: ProtocolPermissionsPr
   }, [selectedProtocols, allowedAddresses])
 
   const toggleProtocol = (protocolId: string) => {
+    const protocol = PROTOCOLS.find(p => p.id === protocolId)
+    if (!protocol) return
+
     const current = selectedProtocols.get(protocolId)
     if (current && current.size > 0) {
       // Deselect protocol and all contracts
@@ -110,8 +117,11 @@ export function ProtocolPermissions({ subAccountAddress }: ProtocolPermissionsPr
       newMap.delete(protocolId)
       setSelectedProtocols(newMap)
     } else {
-      // Expand to show contracts
-      setExpandedProtocol(expandedProtocol === protocolId ? null : protocolId)
+      // Select all contracts in the protocol
+      const newMap = new Map(selectedProtocols)
+      const allContractIds = new Set(protocol.contracts.map(c => c.id))
+      newMap.set(protocol.id, allContractIds)
+      setSelectedProtocols(newMap)
     }
   }
 
