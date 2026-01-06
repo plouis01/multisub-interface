@@ -28,13 +28,13 @@ const SafeProviderWrapper = () => {
   const getRpcProvider = () => {
     if (selectedChain.id === 11155111) {
       // Sepolia
-      return 'https://sepolia.drpc.org'
+      return 'https://ethereum-sepolia-rpc.publicnode.com'
     }
     if (selectedChain.id === 1) {
       // Mainnet
       return 'https://eth.llamarpc.com'
     }
-    return 'https://sepolia.drpc.org' // fallback
+    return 'https://ethereum-sepolia-rpc.publicnode.com' // fallback
   }
 
   const safeConfig = createConfig({

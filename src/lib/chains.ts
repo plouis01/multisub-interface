@@ -22,7 +22,7 @@ export const selectedChain = NETWORK_MAP[networkName]
 
 function getRpcUrl(): string | undefined {
   if (networkName === 'sepolia') {
-    return 'https://sepolia.drpc.org'
+    return 'https://ethereum-sepolia-rpc.publicnode.com'
   }
   if (networkName === 'mainnet') {
     return 'https://eth.llamarpc.com'
