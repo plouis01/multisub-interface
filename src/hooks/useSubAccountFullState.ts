@@ -103,12 +103,17 @@ export function useSubAccountFullState(subAccountAddress?: `0x${string}`) {
   const protocols = useMemo<ProtocolChange[]>(() => {
     return PROTOCOLS.map(protocol => {
       const contracts: ContractChange[] = protocol.contracts.map(contract => {
+        const contractAddresses = getContractAddresses(contract)
+        const isContractActive = allowedAddresses
+          ? contractAddresses.every(addr => allowedAddresses.has(addr))
+          : false
         return {
           contractId: contract.id,
           contractName: contract.name,
           address: contract.address,
           description: contract.description,
           action: 'unchanged', // Current state - not a change
+          isActive: isContractActive,
         }
       })
 
@@ -118,7 +123,7 @@ export function useSubAccountFullState(subAccountAddress?: `0x${string}`) {
         contracts,
       }
     })
-  }, [])
+  }, [allowedAddresses])
 
   const isLoading = loadingExecute || loadingTransfer || loadingLimits || loadingAllowed
 
@@ -151,12 +156,12 @@ export function mergeProtocolsWithChanges(
   currentProtocols: ProtocolChange[],
   changes: ProtocolChange[]
 ): ProtocolChange[] {
-  // Create a map of changes for quick lookup
-  const changesMap = new Map<string, Map<string, 'add' | 'remove' | 'unchanged'>>()
+  // Create a map of changes for quick lookup (action and isActive)
+  const changesMap = new Map<string, Map<string, { action: 'add' | 'remove' | 'unchanged'; isActive?: boolean }>>()
   changes.forEach(protocol => {
-    const contractMap = new Map<string, 'add' | 'remove' | 'unchanged'>()
+    const contractMap = new Map<string, { action: 'add' | 'remove' | 'unchanged'; isActive?: boolean }>()
     protocol.contracts.forEach(contract => {
-      contractMap.set(contract.contractId, contract.action)
+      contractMap.set(contract.contractId, { action: contract.action, isActive: contract.isActive })
     })
     changesMap.set(protocol.protocolId, contractMap)
   })
@@ -166,10 +171,11 @@ export function mergeProtocolsWithChanges(
     const protocolChanges = changesMap.get(protocol.protocolId)
 
     const contracts = protocol.contracts.map(contract => {
-      const action = protocolChanges?.get(contract.contractId) || 'unchanged'
+      const change = protocolChanges?.get(contract.contractId)
       return {
         ...contract,
-        action,
+        action: change?.action || 'unchanged',
+        isActive: change?.isActive ?? contract.isActive,
       }
     })
 

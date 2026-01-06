@@ -208,6 +208,7 @@ export function ProtocolPermissions({ subAccountAddress }: ProtocolPermissionsPr
           address: contract.address,
           description: contract.description,
           action,
+          isActive: isCurrentlyAllowed || action === 'add',
         }
       })
 

@@ -86,6 +86,20 @@ export function PreviewRadialSchema({ data }: PreviewRadialSchemaProps) {
     [displayData.roles]
   )
 
+  // Filter protocols: show only active protocols (at least one contract that is active or being modified)
+  const activeProtocols = useMemo(
+    () =>
+      displayData.protocols.filter(protocol =>
+        protocol.contracts.some(
+          c =>
+            c.action === 'add' ||
+            c.action === 'remove' ||
+            (c.action === 'unchanged' && c.isActive)
+        )
+      ),
+    [displayData.protocols]
+  )
+
   // Helper to get center of an element relative to container
   const getElementCenter = useCallback((element: HTMLElement | null, containerRect: DOMRect) => {
     if (!element) return null
@@ -118,14 +132,14 @@ export function PreviewRadialSchema({ data }: PreviewRadialSchemaProps) {
     })
 
     // Line to Protocols (left)
-    if (protocolsContainerRef.current && displayData.protocols.length > 0) {
+    if (protocolsContainerRef.current && activeProtocols.length > 0) {
       const rect = protocolsContainerRef.current.getBoundingClientRect()
       // Determine dominant protocol action
-      const additions = displayData.protocols.reduce(
+      const additions = activeProtocols.reduce(
         (sum, p) => sum + p.contracts.filter(c => c.action === 'add').length,
         0
       )
-      const removals = displayData.protocols.reduce(
+      const removals = activeProtocols.reduce(
         (sum, p) => sum + p.contracts.filter(c => c.action === 'remove').length,
         0
       )
@@ -159,7 +173,7 @@ export function PreviewRadialSchema({ data }: PreviewRadialSchemaProps) {
     }
 
     setLines(newLines)
-  }, [activeRoles, displayData, getElementCenter])
+  }, [activeRoles, activeProtocols, displayData.spendingLimits, getElementCenter])
 
   useEffect(() => {
     // Calculate after animations complete
@@ -242,13 +256,13 @@ export function PreviewRadialSchema({ data }: PreviewRadialSchemaProps) {
       )}
 
       {/* === PROTOCOLS (LEFT) === */}
-      {displayData.protocols.length > 0 && (
+      {activeProtocols.length > 0 && (
         <div
           ref={protocolsContainerRef}
           className="absolute left-10 top-[55%] -translate-y-1/2 z-10 flex flex-col gap-3"
           style={{ maxWidth: 180 }}
         >
-          {displayData.protocols.map((protocol, idx) => (
+          {activeProtocols.map((protocol, idx) => (
             <ProtocolNode key={protocol.protocolId} protocol={protocol} delay={0.1 + idx * 0.05} />
           ))}
         </div>
