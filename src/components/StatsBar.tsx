@@ -1,5 +1,6 @@
 import { useAccount, useChainId } from 'wagmi'
 import { useSafeAddress, useManagedAccounts, useSafeValue, useIsValueStale } from '@/hooks/useSafe'
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
 import { Badge } from '@/components/ui/badge'
 import { TooltipIcon } from '@/components/ui/tooltip'
 import { ViewSwitcher } from '@/components/ViewSwitcher'
@@ -47,8 +48,8 @@ export function StatsBar() {
         />
       </div>
 
-      {/* Oracle Status - Right */}
-      <OracleStatusCompact />
+      {/* Oracle Status - Right (hidden in claim-only mode) */}
+      {!IS_CLAIM_ONLY_MODE && <OracleStatusCompact />}
     </div>
   )
 }
