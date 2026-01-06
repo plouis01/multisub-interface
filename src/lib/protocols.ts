@@ -1,4 +1,5 @@
 // DeFi Protocol configurations for sub-account permissions
+import { IS_CLAIM_ONLY_MODE } from '@/lib/config'
 
 export interface ProtocolContract {
   id: string
@@ -85,8 +86,53 @@ export const MERKL_PROTOCOL: Protocol = {
   ],
 }
 
-// All available protocols
-export const PROTOCOLS = [UNISWAP_PROTOCOL, AAVE_PROTOCOL, MERKL_PROTOCOL] as const
+// Claim-only protocol configurations (reduced set for rewards claiming only)
+const UNISWAP_CLAIM_ONLY: Protocol = {
+  id: 'uniswap',
+  name: 'Uniswap',
+  description: 'Collect fees from liquidity positions',
+  contracts: [
+    {
+      id: 'uniswap-position-manager-v3',
+      name: 'NonfungiblePositionManager (V3)',
+      address: '0x1238536071E1c677A632429e3655c799b22cDA52',
+      description: 'Collect fees from Uniswap V3 positions',
+    },
+  ],
+}
+
+const AAVE_CLAIM_ONLY: Protocol = {
+  id: 'aave',
+  name: 'Aave V3',
+  description: 'Claim Aave protocol rewards',
+  contracts: [
+    {
+      id: 'aave-rewards-controller',
+      name: 'RewardsController',
+      address: '0x8164Cc65827dcFe994AB23944CBC90e0aa80bFcb',
+      description: 'Claim Aave protocol rewards',
+    },
+  ],
+}
+
+const MERKL_CLAIM_ONLY: Protocol = {
+  id: 'merkl',
+  name: 'Merkl',
+  description: 'Claim Merkl rewards',
+  contracts: [
+    {
+      id: 'merkl-distributor',
+      name: 'Distributor',
+      address: '0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae',
+      description: 'Claim Merkl protocol rewards',
+    },
+  ],
+}
+
+// All available protocols (varies by mode)
+export const PROTOCOLS: Protocol[] = IS_CLAIM_ONLY_MODE
+  ? [UNISWAP_CLAIM_ONLY, AAVE_CLAIM_ONLY, MERKL_CLAIM_ONLY]
+  : [UNISWAP_PROTOCOL, AAVE_PROTOCOL, MERKL_PROTOCOL]
 
 // Helper to get protocol by ID
 export function getProtocolById(id: string): Protocol | undefined {
