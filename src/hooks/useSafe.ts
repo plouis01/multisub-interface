@@ -293,23 +293,22 @@ export function useSafeValue() {
 }
 
 /**
- * Hook to check if the Safe value data is stale (oracle hasn't updated recently)
+ * Hook to check if the Safe value data is stale (oracle hasn't updated recently).
+ * Computes staleness client-side from getSafeValue() lastUpdated timestamp.
  * @param maxAge Maximum age in seconds (default: 3600 = 1 hour)
  */
 export function useIsValueStale(maxAge: number = 3600) {
-  const { chainId } = useAccount()
-  const { addresses } = useContractAddresses()
+  const { data: safeValue } = useSafeValue()
 
-  return useReadContract({
-    address: addresses.defiInteractor,
-    abi: DEFI_INTERACTOR_ABI,
-    functionName: 'isValueStale',
-    args: [BigInt(maxAge)],
-    query: {
-      enabled: Boolean(addresses.defiInteractor),
-    },
-    chainId,
-  })
+  const isStale = React.useMemo(() => {
+    if (!safeValue) return undefined
+    const [, lastUpdated] = safeValue
+    if (lastUpdated === 0n) return true
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    return now - lastUpdated > BigInt(maxAge)
+  }, [safeValue, maxAge])
+
+  return { data: isStale, isLoading: !safeValue }
 }
 
 /**
@@ -366,10 +365,10 @@ function useAcquiredBalancesFromContract(
       options?.enabled !== false &&
       Boolean(
         addresses.defiInteractor &&
-          publicClient &&
-          subAccountAddress &&
-          tokenAddresses &&
-          tokenAddresses.length > 0
+        publicClient &&
+        subAccountAddress &&
+        tokenAddresses &&
+        tokenAddresses.length > 0
       ),
   })
 }
