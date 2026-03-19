@@ -28,12 +28,12 @@ export function MainLayout() {
           >
             <img
               src="/logo.png"
-              alt="MultiSub"
+              alt="MultiClaw"
               className="w-8 h-8 md:w-9 md:h-9 object-contain"
             />
             <div>
               <h1 className="font-semibold text-primary text-base md:text-lg leading-tight">
-                MultiSub
+                MultiClaw
               </h1>
               <p className="-mt-0.5 text-caption text-tertiary hidden md:block">
                 {!isConnected

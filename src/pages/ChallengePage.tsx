@@ -28,7 +28,7 @@ interface VaultStats {
 /**
  * ChallengePage — "Break the Vault" public challenge.
  * Users send natural language instructions to an AI agent that's protected
- * by Multisub on-chain guardrails. If someone can trick the agent into
+ * by MultiClaw on-chain guardrails. If someone can trick the agent into
  * draining the vault, they win.
  */
 export function ChallengePage() {
