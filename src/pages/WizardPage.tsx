@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { isAddress, decodeEventLog, type Address } from 'viem'
+import { isAddress, decodeEventLog, parseUnits, type Address } from 'viem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ROUTES } from '@/router/routes'
 import { AGENT_VAULT_FACTORY_ABI } from '@/lib/contracts'
+import { PROTOCOLS, getProtocolContractAddresses } from '@/lib/protocols'
 
 // Preset IDs match PresetRegistry on-chain (0-indexed via presetCount++)
 const PRESET_IDS: Record<string, number> = {
@@ -57,19 +58,25 @@ const PRESETS = [
 
 type Step = 'preset' | 'configure' | 'review'
 
+// Fixed deployment config — set via environment variables
+const FACTORY_ADDRESS = import.meta.env.VITE_AGENT_VAULT_FACTORY_ADDRESS as Address | undefined
+const ORACLE_ADDRESS = import.meta.env.VITE_ORACLE_ADDRESS as Address | undefined
+const PRICE_FEED_TOKENS = (import.meta.env.VITE_PRICE_FEED_TOKENS || '')
+  .split(',')
+  .filter(Boolean) as Address[]
+const PRICE_FEED_ADDRESSES = (import.meta.env.VITE_PRICE_FEED_ADDRESSES || '')
+  .split(',')
+  .filter(Boolean) as Address[]
+
 export function WizardPage() {
   const navigate = useNavigate()
   const { isConnected } = useAccount()
   const [step, setStep] = useState<Step>('preset')
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null)
   const [agentAddress, setAgentAddress] = useState('')
-  const [oracleAddress, setOracleAddress] = useState('')
-  const [spendingBps, setSpendingBps] = useState(500)
+  const [spendingLimitUSD, setSpendingLimitUSD] = useState('5000')
   const [safeAddress, setSafeAddress] = useState('')
-  const [factoryAddress, setFactoryAddress] = useState(
-    import.meta.env.VITE_AGENT_VAULT_FACTORY_ADDRESS || ''
-  )
-  const [priceFeedEntries, setPriceFeedEntries] = useState<{ token: string; feed: string }[]>([])
+  const [selectedProtocols, setSelectedProtocols] = useState<string[]>([])
   const [deployedModule, setDeployedModule] = useState<string | null>(null)
   const [deployError, setDeployError] = useState<string | null>(null)
 
@@ -93,45 +100,35 @@ export function WizardPage() {
       !preset ||
       !isAddress(safeAddress) ||
       !isAddress(agentAddress) ||
-      !isAddress(factoryAddress) ||
-      !isAddress(oracleAddress)
+      !FACTORY_ADDRESS ||
+      !ORACLE_ADDRESS
     )
       return
-
-    if (oracleAddress.toLowerCase() === safeAddress.toLowerCase()) {
-      setDeployError('Oracle address cannot be the same as the Safe address (rejected by contract)')
-      return
-    }
 
     setDeployError(null)
     setDeployedModule(null)
 
     const presetId = PRESET_IDS[preset.id]
-    const validFeeds = priceFeedEntries.filter(e => isAddress(e.token) && isAddress(e.feed))
-    const feedTokens = validFeeds.map(e => e.token as Address)
-    const feedAddresses = validFeeds.map(e => e.feed as Address)
 
     try {
       if (presetId !== undefined) {
         // Deploy from preset (standard presets)
         writeContract(
           {
-            address: factoryAddress as Address,
+            address: FACTORY_ADDRESS,
             abi: AGENT_VAULT_FACTORY_ABI,
             functionName: 'deployVaultFromPreset',
             args: [
               safeAddress as Address,
-              oracleAddress as Address,
+              ORACLE_ADDRESS,
               agentAddress as Address,
               BigInt(presetId),
-              feedTokens,
-              feedAddresses,
+              PRICE_FEED_TOKENS,
+              PRICE_FEED_ADDRESSES,
             ],
           },
           {
             onSuccess(hash) {
-              // Module address will be extracted from receipt event logs
-              // For now, show the tx hash and navigate after confirmation
               console.log('Vault deployment tx:', hash)
             },
             onError(error) {
@@ -143,25 +140,27 @@ export function WizardPage() {
         // Custom preset — deploy with full config
         writeContract(
           {
-            address: factoryAddress as Address,
+            address: FACTORY_ADDRESS,
             abi: AGENT_VAULT_FACTORY_ABI,
             functionName: 'deployVault',
             args: [
               {
                 safe: safeAddress as Address,
-                oracle: oracleAddress as Address,
+                oracle: ORACLE_ADDRESS,
                 agentAddress: agentAddress as Address,
                 roleId: 1, // EXECUTE by default for custom
-                maxSpendingBps: BigInt(spendingBps),
-                maxSpendingUSD: 0n,
+                maxSpendingBps: 10000n, // 100% — uncapped on bps side, USD is the real cap
+                maxSpendingUSD: parseUnits(spendingLimitUSD || '0', 18),
                 windowDuration: 86400n, // 24h
-                allowedProtocols: [],
+                allowedProtocols: selectedProtocols.flatMap(
+                  id => getProtocolContractAddresses(id) as Address[]
+                ),
                 parserProtocols: [],
                 parserAddresses: [],
                 selectors: [],
                 selectorTypes: [],
-                priceFeedTokens: feedTokens,
-                priceFeedAddresses: feedAddresses,
+                priceFeedTokens: PRICE_FEED_TOKENS,
+                priceFeedAddresses: PRICE_FEED_ADDRESSES,
               },
             ],
           },
@@ -253,12 +252,11 @@ export function WizardPage() {
                 key={p.id}
                 onClick={() => {
                   setSelectedPreset(p.id)
-                  setSpendingBps(p.defaultBps)
                 }}
                 className={`text-left p-5 rounded-xl border transition-all ${
                   selectedPreset === p.id
                     ? 'border-accent-primary bg-accent-primary/5 shadow-glow'
-                    : 'border-subtle bg-elevated-1 hover:border-accent-primary/30'
+                    : 'border-subtle bg-elevated hover:border-accent-primary/30'
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -278,9 +276,7 @@ export function WizardPage() {
                         </span>
                       ))}
                     </div>
-                    <div className="mt-2 text-xs text-tertiary">
-                      Default: {p.defaultBps / 100}% / 24h | Role: {p.roleLabel}
-                    </div>
+                    <div className="mt-2 text-xs text-tertiary">Role: {p.roleLabel}</div>
                   </div>
                 </div>
               </button>
@@ -302,34 +298,18 @@ export function WizardPage() {
       {step === 'configure' && preset && (
         <div>
           <h1 className="text-2xl font-semibold text-primary mb-2">Configure: {preset.name}</h1>
-          <p className="text-secondary mb-8">Set the budget, agent signer, and Safe address.</p>
+          <p className="text-secondary mb-8">
+            Set the Safe address, agent signer, and spending limit.
+          </p>
 
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-primary mb-2">
-                AgentVaultFactory Address
-              </label>
-              <Input
-                value={factoryAddress}
-                onChange={e => setFactoryAddress(e.target.value)}
-                placeholder="0x... (deployed AgentVaultFactory contract)"
-                className="bg-elevated-1 border-subtle"
-              />
-              {factoryAddress && !isAddress(factoryAddress) && (
-                <p className="text-red-400 text-xs mt-1">Invalid address</p>
-              )}
-              <p className="text-xs text-tertiary mt-1">
-                Set via VITE_AGENT_VAULT_FACTORY_ADDRESS env var or enter manually.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-primary mb-2">Safe Address</label>
+              <label className="block text-sm font-medium text-primary mb-1.5">Safe Address</label>
               <Input
                 value={safeAddress}
                 onChange={e => setSafeAddress(e.target.value)}
-                placeholder="0x... (your Safe multisig address)"
-                className="bg-elevated-1 border-subtle"
+                placeholder="0x... (your Safe multisig)"
+                className="bg-elevated-2 border-subtle"
               />
               {safeAddress && !isAddress(safeAddress) && (
                 <p className="text-red-400 text-xs mt-1">Invalid address</p>
@@ -337,14 +317,14 @@ export function WizardPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-2">
+              <label className="block text-sm font-medium text-primary mb-1.5">
                 Agent Signer Address
               </label>
               <Input
                 value={agentAddress}
                 onChange={e => setAgentAddress(e.target.value)}
-                placeholder="0x... (the AI agent's EOA key)"
-                className="bg-elevated-1 border-subtle"
+                placeholder="0x... (the AI agent's EOA)"
+                className="bg-elevated-2 border-subtle"
               />
               {agentAddress && !isAddress(agentAddress) && (
                 <p className="text-red-400 text-xs mt-1">Invalid address</p>
@@ -352,116 +332,110 @@ export function WizardPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-2">
-                Oracle Address <span className="text-red-400">*</span>
+              <label className="block text-sm font-medium text-primary mb-1.5">
+                Max spending per 24h (USD)
               </label>
-              <Input
-                value={oracleAddress}
-                onChange={e => setOracleAddress(e.target.value)}
-                placeholder="0x... (oracle wallet that updates spending state)"
-                className="bg-elevated-1 border-subtle"
-              />
-              {oracleAddress && !isAddress(oracleAddress) && (
-                <p className="text-red-400 text-xs mt-1">Invalid address</p>
-              )}
-              {oracleAddress &&
-                isAddress(oracleAddress) &&
-                safeAddress &&
-                isAddress(safeAddress) &&
-                oracleAddress.toLowerCase() === safeAddress.toLowerCase() && (
-                  <p className="text-red-400 text-xs mt-1">
-                    Oracle cannot be the same as the Safe address
-                  </p>
-                )}
-              <p className="text-xs text-tertiary mt-1">
-                Required. The oracle monitors spending and updates allowances. See oracle/ for
-                setup.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-primary mb-2">
-                Spending Limit (basis points per 24h)
-              </label>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-secondary text-lg">$</span>
                 <Input
                   type="number"
-                  value={spendingBps}
-                  onChange={e => setSpendingBps(Number(e.target.value))}
+                  value={spendingLimitUSD}
+                  onChange={e => setSpendingLimitUSD(e.target.value)}
                   min={1}
-                  max={2000}
-                  className="bg-elevated-1 border-subtle w-32"
+                  step={100}
+                  placeholder="5000"
+                  className="bg-elevated-2 border-subtle w-40"
                 />
-                <span className="text-secondary text-sm">{spendingBps / 100}% of Safe value</span>
+                <span className="text-secondary text-sm">USD per 24h window</span>
               </div>
-              <p className="text-xs text-tertiary mt-1">
-                Max: 2000 bps (20%). Hard cap enforced on-chain.
+              <p className="text-xs text-tertiary mt-1.5">
+                The agent cannot spend more than this amount in any rolling 24-hour period. Enforced
+                on-chain via price feed oracles.
               </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-primary mb-2">
-                Price Feeds (Chainlink)
-              </label>
-              <p className="text-xs text-tertiary mb-3">
-                Map each token to its Chainlink price feed on Base. Without price feeds, the module
-                cannot estimate USD values and spending checks will revert.
-              </p>
-              {priceFeedEntries.map((entry, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 mb-2"
-                >
-                  <Input
-                    value={entry.token}
-                    onChange={e => {
-                      const updated = [...priceFeedEntries]
-                      updated[i] = { ...entry, token: e.target.value }
-                      setPriceFeedEntries(updated)
-                    }}
-                    placeholder="Token address (0x...)"
-                    className="bg-elevated-1 border-subtle flex-1"
-                  />
-                  <Input
-                    value={entry.feed}
-                    onChange={e => {
-                      const updated = [...priceFeedEntries]
-                      updated[i] = { ...entry, feed: e.target.value }
-                      setPriceFeedEntries(updated)
-                    }}
-                    placeholder="Chainlink feed address (0x...)"
-                    className="bg-elevated-1 border-subtle flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPriceFeedEntries(priceFeedEntries.filter((_, j) => j !== i))}
-                    className="shrink-0"
-                  >
-                    X
-                  </Button>
-                </div>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPriceFeedEntries([...priceFeedEntries, { token: '', feed: '' }])}
-              >
-                + Add Price Feed
-              </Button>
-              {priceFeedEntries.length === 0 && (
-                <div className="mt-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                  <p className="text-xs text-yellow-400">
-                    No price feeds configured. The module will revert on any operation that requires
-                    USD value estimation. You can add price feeds after deployment via
-                    setTokenPriceFeeds().
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
-          <div className="flex justify-between mt-8">
+          {selectedPreset === 'custom' && (
+            <div className="mt-8 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-primary mb-1.5">
+                  Allowed Protocols
+                </label>
+                <p className="text-xs text-tertiary mb-3">
+                  Select which protocols the agent is allowed to interact with. All contract
+                  addresses for each protocol will be whitelisted.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {PROTOCOLS.map(protocol => {
+                  const isSelected = selectedProtocols.includes(protocol.id)
+                  return (
+                    <button
+                      key={protocol.id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedProtocols(prev =>
+                          isSelected
+                            ? prev.filter(id => id !== protocol.id)
+                            : [...prev, protocol.id]
+                        )
+                      }
+                      className={`w-full text-left p-3 rounded-lg border transition-all ${
+                        isSelected
+                          ? 'border-accent-primary bg-accent-primary/5'
+                          : 'border-subtle bg-elevated hover:border-accent-primary/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-medium text-primary">{protocol.name}</span>
+                          <span className="text-xs text-tertiary ml-2">{protocol.description}</span>
+                        </div>
+                        <div
+                          className={`w-5 h-5 rounded border flex items-center justify-center text-xs ${
+                            isSelected
+                              ? 'border-accent-primary bg-accent-primary text-black'
+                              : 'border-subtle'
+                          }`}
+                        >
+                          {isSelected && '✓'}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {protocol.contracts.map(c => (
+                          <span
+                            key={c.id}
+                            className="text-xs px-1.5 py-0.5 rounded bg-elevated-2 text-tertiary"
+                          >
+                            {c.name}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedProtocols.length === 0 && (
+                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                  <p className="text-xs text-yellow-400">
+                    No protocols selected. The agent will not be able to interact with any DeFi
+                    protocol. You can add protocols after deployment via addAllowedProtocol().
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(!FACTORY_ADDRESS || !ORACLE_ADDRESS) && (
+            <div className="mt-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-xs text-red-400">
+                Missing deployment config. Set VITE_AGENT_VAULT_FACTORY_ADDRESS and
+                VITE_ORACLE_ADDRESS in your environment.
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-between mt-10">
             <Button
               variant="outline"
               onClick={() => setStep('preset')}
@@ -473,11 +447,8 @@ export function WizardPage() {
               disabled={
                 !isAddress(agentAddress) ||
                 !isAddress(safeAddress) ||
-                !isAddress(factoryAddress) ||
-                !isAddress(oracleAddress) ||
-                (isAddress(oracleAddress) &&
-                  isAddress(safeAddress) &&
-                  oracleAddress.toLowerCase() === safeAddress.toLowerCase())
+                !FACTORY_ADDRESS ||
+                !ORACLE_ADDRESS
               }
               className="bg-accent-primary text-black hover:bg-accent-primary/90 disabled:opacity-50"
             >
@@ -496,16 +467,10 @@ export function WizardPage() {
             your agent.
           </p>
 
-          <div className="bg-elevated-1 rounded-xl border border-subtle p-6 space-y-4">
+          <div className="bg-elevated rounded-xl border border-subtle p-6 space-y-4">
             <div className="flex justify-between">
               <span className="text-secondary">Preset</span>
               <span className="text-primary font-medium">{preset.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-secondary">Factory</span>
-              <span className="text-primary font-mono text-sm">
-                {factoryAddress.slice(0, 6)}...{factoryAddress.slice(-4)}
-              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-secondary">Safe</span>
@@ -520,22 +485,25 @@ export function WizardPage() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-secondary">Oracle</span>
-              <span className="text-primary font-mono text-sm">
-                {oracleAddress.slice(0, 6)}...{oracleAddress.slice(-4)}
-              </span>
-            </div>
-            <div className="flex justify-between">
               <span className="text-secondary">Role</span>
               <span className="text-primary">{preset.roleLabel}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-secondary">Spending Limit</span>
-              <span className="text-primary">{spendingBps / 100}% per 24h</span>
+              <span className="text-primary">
+                ${Number(spendingLimitUSD || 0).toLocaleString()} per 24h
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-secondary">Protocols</span>
-              <span className="text-primary">{preset.protocols.join(', ')}</span>
+              <span className="text-primary text-right">
+                {selectedPreset === 'custom'
+                  ? selectedProtocols
+                      .map(id => PROTOCOLS.find(p => p.id === id)?.name)
+                      .filter(Boolean)
+                      .join(', ') || 'None'
+                  : preset.protocols.join(', ')}
+              </span>
             </div>
           </div>
 
@@ -552,10 +520,9 @@ export function WizardPage() {
                 Custom preset: additional setup required
               </p>
               <p className="text-xs text-yellow-400/80 mt-1">
-                The custom preset deploys with no allowed protocols, parsers, or selectors. After
-                deployment, you must configure these via the module owner functions
-                (addAllowedProtocol, addParser, addSelector) before the agent can execute any
-                transactions.
+                The custom preset deploys without calldata parsers or function selectors. After
+                deployment, you may need to configure these via the module owner functions
+                (addParser, addSelector) to enable specific operations.
               </p>
             </div>
           )}

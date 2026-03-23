@@ -54,7 +54,7 @@ export function AgentsPage() {
     )
   }
 
-  const safeValueUSD = safeValue ? Number(safeValue.totalValueUSD) / 1e18 : 0
+  const safeValueUSD = safeValue ? Number(safeValue[0]) / 1e18 : 0
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -96,16 +96,19 @@ export function AgentsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {managedAccounts.map(account => (
-            <AgentCard
-              key={account.address}
-              address={account.address}
-              roles={account.roles}
-              spendingAllowance={account.spendingAllowance}
-              maxSpendingBps={account.limits?.maxSpendingBps}
-              safeValueUSD={safeValueUSD}
-            />
-          ))}
+          {managedAccounts.map(account => {
+            const roles: string[] = []
+            if (account.hasExecuteRole) roles.push('EXECUTE')
+            if (account.hasTransferRole) roles.push('TRANSFER')
+            return (
+              <AgentCard
+                key={account.address}
+                address={account.address}
+                roles={roles}
+                safeValueUSD={safeValueUSD}
+              />
+            )
+          })}
         </div>
       )}
     </div>
@@ -115,26 +118,10 @@ export function AgentsPage() {
 interface AgentCardProps {
   address: string
   roles: string[]
-  spendingAllowance?: bigint | number
-  maxSpendingBps?: number
   safeValueUSD: number
 }
 
-function AgentCard({
-  address,
-  roles,
-  spendingAllowance,
-  maxSpendingBps,
-  safeValueUSD,
-}: AgentCardProps) {
-  const allowance =
-    typeof spendingAllowance === 'bigint'
-      ? Number(spendingAllowance) / 1e18
-      : (spendingAllowance ?? 0)
-  const bps = maxSpendingBps ?? 500
-  const maxAllowance = (safeValueUSD * bps) / 10000
-  const usedPct =
-    maxAllowance > 0 ? Math.min(100, ((maxAllowance - allowance) / maxAllowance) * 100) : 0
+function AgentCard({ address, roles, safeValueUSD }: AgentCardProps) {
   const isActive = roles.length > 0
 
   return (
@@ -161,27 +148,10 @@ function AgentCard({
         </span>
       </div>
 
-      {/* Budget bar */}
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-xs">
-          <span className="text-tertiary">Budget used</span>
-          <span className="text-secondary">
-            ${allowance.toLocaleString(undefined, { maximumFractionDigits: 0 })} / $
-            {maxAllowance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </span>
-        </div>
-        <div className="h-2 rounded-full bg-elevated-2 overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all ${
-              usedPct > 80 ? 'bg-red-400' : usedPct > 50 ? 'bg-yellow-400' : 'bg-accent-primary'
-            }`}
-            style={{ width: `${usedPct}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-xs text-tertiary">
-          <span>{bps / 100}% of Safe per 24h</span>
-          <span>{usedPct.toFixed(1)}% used</span>
-        </div>
+      <div className="flex items-center gap-2 text-xs text-tertiary">
+        <span>
+          Safe value: ${safeValueUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        </span>
       </div>
     </div>
   )

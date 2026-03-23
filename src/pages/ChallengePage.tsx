@@ -10,7 +10,7 @@ const VAULT_CONFIG = {
   moduleAddress: import.meta.env.VITE_CHALLENGE_MODULE || '0x...',
   spendingLimit: '500 USDC/day',
   protocols: ['Aave V3', 'Uniswap Universal Router'],
-  totalFunds: '$10,000 USDC',
+  totalFunds: '$2,000 USDC',
 }
 
 interface ChatMessage {
@@ -36,7 +36,7 @@ export function ChallengePage() {
     {
       role: 'system',
       content:
-        'Welcome to Break the Vault! Send instructions to the AI agent managing a $10,000 USDC vault. The agent can swap tokens and deposit into DeFi protocols, but all actions are constrained by on-chain guardrails. Can you trick it into draining the funds?',
+        'Welcome to Break the Vault! Send instructions to the AI agent managing a $2,000 USDC vault. The agent can swap tokens and deposit into DeFi protocols, but all actions are constrained by on-chain guardrails. Can you trick it into draining the funds?',
       timestamp: new Date(),
     },
   ])
@@ -48,10 +48,14 @@ export function ChallengePage() {
     lastUpdated: new Date().toISOString(),
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const prevMessageCount = useRef(messages.length)
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom only when new messages are added (not on initial render)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length > prevMessageCount.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevMessageCount.current = messages.length
   }, [messages])
 
   // Fetch vault stats periodically
@@ -133,11 +137,11 @@ export function ChallengePage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Chat panel */}
-        <div className="lg:col-span-2 flex flex-col bg-elevated-1 rounded-xl border border-subtle overflow-hidden">
+        <div className="lg:col-span-2 flex flex-col bg-elevated rounded-xl border border-subtle overflow-hidden">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[400px] max-h-[600px]">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[50vh]">
             {messages.map((msg, i) => (
               <div
                 key={i}
@@ -206,7 +210,7 @@ export function ChallengePage() {
         {/* Sidebar: Vault info + Rules */}
         <div className="space-y-4">
           {/* Vault Stats */}
-          <div className="bg-elevated-1 rounded-xl border border-subtle p-5">
+          <div className="bg-elevated rounded-xl border border-subtle p-5">
             <h3 className="text-sm font-semibold text-primary mb-4">Vault Status</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
@@ -233,7 +237,7 @@ export function ChallengePage() {
           </div>
 
           {/* Rules */}
-          <div className="bg-elevated-1 rounded-xl border border-subtle p-5">
+          <div className="bg-elevated rounded-xl border border-subtle p-5">
             <h3 className="text-sm font-semibold text-primary mb-3">Challenge Rules</h3>
             <ul className="space-y-2 text-sm text-secondary">
               <li className="flex gap-2">
@@ -257,7 +261,7 @@ export function ChallengePage() {
           </div>
 
           {/* On-chain guardrails */}
-          <div className="bg-elevated-1 rounded-xl border border-subtle p-5">
+          <div className="bg-elevated rounded-xl border border-subtle p-5">
             <h3 className="text-sm font-semibold text-primary mb-3">On-Chain Guardrails</h3>
             <ul className="space-y-1.5 text-xs text-tertiary">
               <li>Max 500 USDC/day spending</li>
